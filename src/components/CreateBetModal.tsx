@@ -39,6 +39,8 @@ const CATEGORIES: { id: Category; label: string; icon: string }[] = [
 ];
 
 const PRESETS = [
+  { sideX: 'Joe Lycett (Banished)', sideY: 'Romesh Ranganathan (Survives)', title: 'Celebrity Traitors UK 2026: Who is Banished at the Round Table Tonight?', cat: 'entertainment' as Category },
+  { sideX: 'Michael Sheen (Murdered in Turret)', sideY: 'Bella Ramsey (Survives)', title: 'Celebrity Traitors UK 2026: Who is Murdered Overnight by the Traitors?', cat: 'entertainment' as Category },
   { sideX: 'Jim (Woodfire Smoker)', sideY: 'John (Pastry & Flambé)', title: 'Cooking Showdown: Jim vs John Culinary Duel', cat: 'culinary' as Category },
   { sideX: 'England', sideY: 'Spain', title: 'England vs Spain Football Showdown', cat: 'sports' as Category },
   { sideX: 'Tesla', sideY: 'BYD', title: 'Tesla vs BYD Global EV Deliveries Race', cat: 'tech' as Category },

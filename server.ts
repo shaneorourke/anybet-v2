@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -26,27 +27,50 @@ const ai = new GoogleGenAI({
 
 /**
  * Endpoint 1: Discover and generate real-world popular showdowns
- * High profile football, CS2/CS:GO, Street Fighter 6, UFC/Combat, etc.
+ * TV / Reality (Celebrity Traitors UK, banishments, murders), Football, CS2, Street Fighter 6, etc.
  */
 app.post('/api/gemini/discover-matches', async (req: Request, res: Response) => {
   try {
     const { category, focus } = req.body;
 
+    let focusInstruction = '';
+    if (focus === 'traitors' || focus === 'tv') {
+      focusInstruction = `Focus heavily on "The Traitors UK: Celebrity Edition 2026" (Celebrity Traitors UK 2026, Series 2, currently airing on BBC One & BBC iPlayer in October 2026 with Claudia Winkleman).
+CRITICAL CAST CONTEXT for Celebrity Traitors UK 2026:
+The official 2026 celebrity cast currently in the castle includes:
+Bella Ramsey, James Acaster (recruited Traitor), James Blunt, Jerry Hall, Joanne McNally, Joe Lycett, Julie Hesmondhalgh, King Kenny, Leigh-Anne Pinnock, Maya Jama (Traitor), Michael Sheen, Miranda Hart, Myha'la, Professor Hannah Fry, Richard E. Grant (Traitor), Rob Beckett, Romesh Ranganathan, Ross Kemp, Sebastian Croft, and Sharon Rooney.
+(Note: Do NOT use past civilian seasons or old series contestants).
+Generate authentic head-to-head wagers for the 2026 series currently airing, such as:
+1. "Celebrity Traitors UK 2026: Who will be Banished at Claudia's Round Table Tonight? — Joe Lycett vs Romesh Ranganathan"
+2. "Celebrity Traitors UK 2026: Who will the Traitors Murder in the Turret Tonight? — Michael Sheen vs Bella Ramsey"
+3. "Celebrity Traitors UK 2026: Next Traitor to be Exposed & Banished — James Acaster vs Richard E. Grant"
+4. "Celebrity Traitors UK 2026: Who Survives the Banishment Vote Tonight? — Miranda Hart vs James Blunt"
+Include BBC iPlayer watch links (https://www.bbc.co.uk/iplayer).`;
+    } else if (focus === 'football') {
+      focusInstruction = `Focus on marquee football/soccer showdowns (e.g., Champions League, Premier League, El Clásico).`;
+    } else if (focus === 'cs2') {
+      focusInstruction = `Focus on high-profile Counter-Strike 2 (CS2) esports matches (BLAST Premier, ESL Pro League, IEM).`;
+    } else if (focus === 'fighting') {
+      focusInstruction = `Focus on Street Fighter 6 and fighting game tournament showdowns (Capcom Pro Tour, EVO).`;
+    } else {
+      focusInstruction = `Provide a diverse mix of 4 hot real-world showdowns:
+1. "Celebrity Traitors UK 2026" (airing currently in October 2026 on BBC One / iPlayer — using 2026 cast members like Joe Lycett, Romesh Ranganathan, Michael Sheen, Bella Ramsey, James Acaster, Maya Jama, or Richard E. Grant)
+2. High-profile Football (Champions League or Premier League fixture)
+3. Counter-Strike 2 esports clash (ESL / BLAST)
+4. Street Fighter 6 or Combat duel (EVO / UFC)`;
+    }
+
     const prompt = `You are the AnyBet Oracle. Find 4 real-world, high-profile head-to-head showdowns happening this week or season.
-Focus on:
-1. Football / Soccer (e.g., Champions League, Premier League, El Clásico, Madrid vs City, Arsenal vs Liverpool)
-2. Counter-Strike 2 / CS:GO esports (e.g., BLAST Premier, ESL Pro League: FaZe vs NaVi, Vitality vs G2)
-3. Street Fighter 6 / Fighting Games (e.g., Capcom Pro Tour, EVO: Punk vs MenaRD, Tokido vs Daigo)
-4. Combat sports or other marquee 1v1 showdowns (e.g., UFC, Boxing)
+${focusInstruction}
 
 For each match, provide:
 - Strict binary head-to-head competitors: sideX (Competitor X) and sideY (Competitor Y)
-- Catchy official title (e.g. "Real Madrid vs Manchester City — UEFA Champions League Clash")
-- Category: "sports" or "gaming"
-- Event or tournament name
-- Twitch livestream watch URL if gaming/esports (e.g. "https://www.twitch.tv/eslcs" or "https://www.twitch.tv/blastpremier" for CS2; "https://www.twitch.tv/capcomfighters" for Street Fighter; "https://www.twitch.tv/evo" for EVO)
-- Short official rules / victory conditions (e.g. "Winner of standard 90 mins + extra time / best of 3 maps / best of 5 games")
-- Days until match (integer 1 to 5)
+- Catchy official title (e.g. "Celebrity Traitors UK: Who will be Banished at the Round Table Tonight? — Alan Carr vs Jonathan Ross" or "Arsenal vs Liverpool — Premier League Title Duel")
+- Category: "entertainment", "sports", or "gaming"
+- Event or show name (e.g. "The Traitors UK: Celebrity Edition (BBC One)", "UEFA Champions League", "ESL Pro League")
+- Stream or broadcast watch URL (e.g. "https://www.bbc.co.uk/iplayer" for Traitors/TV; "https://www.twitch.tv/eslcs" or "https://www.twitch.tv/blastpremier" for CS2; "https://www.twitch.tv/capcomfighters" for Street Fighter)
+- Short official rules / victory conditions (e.g. "Official BBC One broadcast reveal: The celebrity receiving the most banishment votes at the Round Table or murdered overnight" or "Winner of standard 90 mins + extra time")
+- Days until match / broadcast: integer (use 0 for 'on tonight!', 1 for tomorrow, up to 4)
 
 Format the output strictly as a JSON array of objects.`;
 
@@ -61,13 +85,13 @@ Format the output strictly as a JSON array of objects.`;
             type: Type.OBJECT,
             properties: {
               title: { type: Type.STRING },
-              category: { type: Type.STRING, description: "'sports' or 'gaming'" },
+              category: { type: Type.STRING, description: "'entertainment', 'sports', or 'gaming'" },
               sideXName: { type: Type.STRING },
-              sideXFlag: { type: Type.STRING, description: "emoji icon or flag e.g. ⚽, 🔫, 🥊, 🇪🇸" },
+              sideXFlag: { type: Type.STRING, description: "emoji icon or flag e.g. 🏰, 🗡️, 🕯️, ⚽, 🔫, 🥊" },
               sideYName: { type: Type.STRING },
               sideYFlag: { type: Type.STRING, description: "emoji icon or flag" },
               eventLeague: { type: Type.STRING },
-              twitchUrl: { type: Type.STRING, description: "Twitch broadcast stream URL or empty" },
+              twitchUrl: { type: Type.STRING, description: "Broadcast stream URL (e.g. https://www.bbc.co.uk/iplayer or https://www.twitch.tv/...)" },
               rules: { type: Type.STRING },
               daysUntil: { type: Type.INTEGER },
             },
@@ -83,8 +107,56 @@ Format the output strictly as a JSON array of objects.`;
     res.json({ success: true, matches });
   } catch (error: any) {
     console.error('Error generating matches with Gemini:', error);
-    // Resilient fallback with real-world curated tournament matches if Gemini is busy
+    // Resilient fallback with real-world curated TV, Traitors 2026, and esports matches if Gemini is busy
     const fallbackMatches = [
+      {
+        title: 'Celebrity Traitors UK 2026: Who will be Banished at the Round Table Tonight? — Joe Lycett vs Romesh Ranganathan',
+        category: 'entertainment',
+        sideXName: 'Joe Lycett',
+        sideXFlag: '🏰',
+        sideYName: 'Romesh Ranganathan',
+        sideYFlag: '🗡️',
+        eventLeague: 'Celebrity Traitors UK 2026 (BBC One / iPlayer)',
+        twitchUrl: 'https://www.bbc.co.uk/iplayer',
+        rules: 'Official BBC One 2026 episode broadcast: Celebrity receiving the most banishment votes at Claudia Winkleman\'s Round Table tonight.',
+        daysUntil: 0,
+      },
+      {
+        title: 'Celebrity Traitors UK 2026: Who will the Traitors Murder in the Turret Tonight? — Michael Sheen vs Bella Ramsey',
+        category: 'entertainment',
+        sideXName: 'Michael Sheen',
+        sideXFlag: '🕯️',
+        sideYName: 'Bella Ramsey',
+        sideYFlag: '📜',
+        eventLeague: 'Celebrity Traitors UK 2026 (BBC One / iPlayer)',
+        twitchUrl: 'https://www.bbc.co.uk/iplayer',
+        rules: 'Official BBC One 2026 episode broadcast: Celebrity murdered by the hooded Traitors in the castle turret before breakfast.',
+        daysUntil: 0,
+      },
+      {
+        title: 'Celebrity Traitors UK 2026: Next Traitor Unmasked & Banished — James Acaster vs Richard E. Grant',
+        category: 'entertainment',
+        sideXName: 'James Acaster (Traitor)',
+        sideXFlag: '🎭',
+        sideYName: 'Richard E. Grant (Traitor)',
+        sideYFlag: '🗝️',
+        eventLeague: 'Celebrity Traitors UK 2026 (BBC One / iPlayer)',
+        twitchUrl: 'https://www.bbc.co.uk/iplayer',
+        rules: 'First of the two secret Traitors to be exposed and banished at the Round Table by the Faithfuls.',
+        daysUntil: 1,
+      },
+      {
+        title: 'Celebrity Traitors UK 2026: Round Table Survival Duel Tonight — Miranda Hart vs James Blunt',
+        category: 'entertainment',
+        sideXName: 'Miranda Hart',
+        sideXFlag: '🛡️',
+        sideYName: 'James Blunt',
+        sideYFlag: '🎯',
+        eventLeague: 'Celebrity Traitors UK 2026 (BBC One / iPlayer)',
+        twitchUrl: 'https://www.bbc.co.uk/iplayer',
+        rules: 'Which Faithful receives fewer votes and stays safely in Ardross Castle after tonight\'s banishment vote.',
+        daysUntil: 0,
+      },
       {
         title: 'Team Vitality vs G2 Esports — CS2 ESL Pro League Quarterfinals',
         category: 'gaming',
@@ -117,19 +189,9 @@ Format the output strictly as a JSON array of objects.`;
         sideYName: 'Chelsea FC',
         sideYFlag: '🔵',
         eventLeague: 'English Premier League',
+        twitchUrl: '',
         rules: '90 minutes regular play whistle result at Anfield.',
         daysUntil: 4,
-      },
-      {
-        title: 'Alex Pereira vs Magomed Ankalaev — UFC Light Heavyweight Championship',
-        category: 'sports',
-        sideXName: 'Alex Pereira (Poatan)',
-        sideXFlag: '🗿',
-        sideYName: 'Magomed Ankalaev',
-        sideYFlag: '🦅',
-        eventLeague: 'UFC Pay-Per-View Main Event',
-        rules: '5-round championship bout. Official Bruce Buffer judges decision or stoppage.',
-        daysUntil: 5,
       },
     ];
 
@@ -139,7 +201,7 @@ Format the output strictly as a JSON array of objects.`;
 
 /**
  * Endpoint 2: Verify match status and live outcome using Google Search Grounding
- * Checks if the match concluded in real life, who won, and the score.
+ * Checks if the match or TV episode concluded in real life, who won, and the score/elimination.
  */
 app.post('/api/gemini/verify-match', async (req: Request, res: Response) => {
   try {
@@ -149,13 +211,17 @@ app.post('/api/gemini/verify-match', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'sideX and sideY required' });
     }
 
-    const query = `Look up the real-world outcome and score for this head-to-head match:
-"${title}" between "${sideX}" and "${sideY}" in ${eventLeague || 'recent competitions'}.
-Answer whether this match has concluded yet in real life.
-If it has concluded:
+    const query = `Look up the real-world outcome, latest episode result, banishment, murder, elimination, or match score for this head-to-head proposition:
+"${title}" between "${sideX}" and "${sideY}" in ${eventLeague || 'recent broadcasts/competitions'}.
+Answer whether this has concluded yet in real life or on broadcast television.
+If this is a TV show (specifically "Celebrity Traitors UK 2026" / The Traitors UK 2026 celebrity edition currently airing on BBC One / iPlayer with Claudia Winkleman and the 2026 celebrity cast):
+- Check the official BBC One broadcast / iPlayer episodes from October 2026.
+- Between "${sideX}" and "${sideY}", who was murdered by the Traitors, who was banished at Claudia's Round Table, or who was eliminated or survived?
+- Note that this is the 2026 celebrity season with Joe Lycett, Romesh Ranganathan, Michael Sheen, Bella Ramsey, James Acaster, Maya Jama, Richard E. Grant, Miranda Hart, James Blunt, etc.
+If this is sports or esports:
 - Did "${sideX}" win, did "${sideY}" win, or was it a draw/postponed?
-- What was the final score/result?
-If it has NOT happened yet or is still upcoming, indicate it is scheduled/in progress.`;
+- What was the final score?
+State clearly whether this proposition has officially concluded, and which side prevailed.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
@@ -188,7 +254,12 @@ If it has NOT happened yet or is still upcoming, indicate it is scheduled/in pro
       lower.includes('won ') ||
       lower.includes('finished') ||
       lower.includes('final score') ||
-      lower.includes('ended in')
+      lower.includes('ended in') ||
+      lower.includes('banished') ||
+      lower.includes('murdered') ||
+      lower.includes('eliminated') ||
+      lower.includes('voted out') ||
+      lower.includes('unmasked')
     ) {
       concluded = true;
     }
@@ -196,12 +267,16 @@ If it has NOT happened yet or is still upcoming, indicate it is scheduled/in pro
     const xLower = sideX.toLowerCase();
     const yLower = sideY.toLowerCase();
 
-    // Check who won
+    // Check who won or prevailed in the proposition
     if (
       lower.includes(`${xLower} won`) ||
       lower.includes(`${xLower} defeated`) ||
       lower.includes(`${xLower} beat`) ||
-      lower.includes(`victory for ${xLower}`)
+      lower.includes(`victory for ${xLower}`) ||
+      lower.includes(`${xLower} was banished`) ||
+      lower.includes(`${xLower} was murdered`) ||
+      lower.includes(`${xLower} was eliminated`) ||
+      lower.includes(`${xLower} is the traitor`)
     ) {
       winner = 'X';
       concluded = true;
@@ -209,7 +284,11 @@ If it has NOT happened yet or is still upcoming, indicate it is scheduled/in pro
       lower.includes(`${yLower} won`) ||
       lower.includes(`${yLower} defeated`) ||
       lower.includes(`${yLower} beat`) ||
-      lower.includes(`victory for ${yLower}`)
+      lower.includes(`victory for ${yLower}`) ||
+      lower.includes(`${yLower} was banished`) ||
+      lower.includes(`${yLower} was murdered`) ||
+      lower.includes(`${yLower} was eliminated`) ||
+      lower.includes(`${yLower} is the traitor`)
     ) {
       winner = 'Y';
       concluded = true;
@@ -232,8 +311,8 @@ If it has NOT happened yet or is still upcoming, indicate it is scheduled/in pro
       success: true,
       concluded: false,
       winner: null,
-      summary: `Live tournament fixture: Match between ${req.body.sideX} and ${req.body.sideY} is currently scheduled on the official calendar. Official result will be updated as soon as broadcast stream concludes.`,
-      sources: ['https://twitch.tv', 'https://hltv.org'],
+      summary: `Live fixture/broadcast: Proposition between ${req.body.sideX} and ${req.body.sideY} is currently scheduled. Official result will be updated as soon as the broadcast or tournament concludes.`,
+      sources: ['https://bbc.co.uk/iplayer', 'https://twitch.tv'],
       timestamp: new Date().toISOString(),
     });
   }

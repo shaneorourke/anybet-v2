@@ -93,10 +93,22 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                 onClick={(e) => {
                   sound.playClick();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#9146FF] hover:bg-[#772CE8] text-white font-bold text-xs shadow-md transition-all active:scale-95"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs shadow-md transition-all active:scale-95 ${
+                  bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
+                    ? 'bg-red-600 hover:bg-red-500'
+                    : bet.twitchUrl.toLowerCase().includes('twitch')
+                    ? 'bg-[#9146FF] hover:bg-[#772CE8]'
+                    : 'bg-sky-600 hover:bg-sky-500'
+                }`}
               >
                 <Tv className="w-3.5 h-3.5 animate-pulse" />
-                <span>Watch on Twitch</span>
+                <span>
+                  {bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
+                    ? 'Watch on BBC iPlayer'
+                    : bet.twitchUrl.toLowerCase().includes('twitch')
+                    ? 'Watch on Twitch'
+                    : 'Watch Broadcast'}
+                </span>
                 <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
               </a>
             )}

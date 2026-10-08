@@ -500,22 +500,31 @@ export default function App() {
 
   // Add match from AI Discover Modal
   const handleAddDiscoveredMatch = (match: any) => {
+    const isTraitorsOrTv = 
+      match.category === 'entertainment' || 
+      match.title.toLowerCase().includes('traitor') || 
+      match.title.toLowerCase().includes('celebrity') ||
+      match.title.toLowerCase().includes('murder') ||
+      match.title.toLowerCase().includes('banish');
+
     const newBet: Bet = {
       id: `bet_ai_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       title: match.title,
-      category: (match.category as Category) || 'gaming',
-      bannerImage: match.category === 'sports' 
+      category: isTraitorsOrTv ? 'entertainment' : ((match.category as Category) || 'gaming'),
+      bannerImage: isTraitorsOrTv
+        ? '/src/assets/images/match_celebrity_traitors_1791480924755.jpg'
+        : match.category === 'sports' 
         ? '/src/assets/images/match_football_clash_1791404902212.jpg'
         : match.title.toLowerCase().includes('street')
         ? '/src/assets/images/match_street_fighter_evo_1791405981217.jpg'
         : '/src/assets/images/match_cs2_major_1791405968984.jpg',
-      twitchUrl: match.twitchUrl || (match.category === 'gaming' ? 'https://www.twitch.tv/eslcs' : undefined),
+      twitchUrl: match.twitchUrl || (isTraitorsOrTv ? 'https://www.bbc.co.uk/iplayer' : match.category === 'gaming' ? 'https://www.twitch.tv/eslcs' : undefined),
       isRealWorld: true,
-      eventLeague: match.eventLeague || 'Global Invitational',
+      eventLeague: match.eventLeague || (isTraitorsOrTv ? 'The Traitors UK (BBC One)' : 'Global Invitational'),
       sideX: {
         id: 'X',
         name: match.sideXName,
-        avatarOrFlag: match.sideXFlag || '⚡',
+        avatarOrFlag: match.sideXFlag || (isTraitorsOrTv ? '🏰' : '⚡'),
         pool: 5000,
         bettorsCount: 20,
         odds: 2.0,
@@ -523,7 +532,7 @@ export default function App() {
       sideY: {
         id: 'Y',
         name: match.sideYName,
-        avatarOrFlag: match.sideYFlag || '🔥',
+        avatarOrFlag: match.sideYFlag || (isTraitorsOrTv ? '🗡️' : '🔥'),
         pool: 5000,
         bettorsCount: 20,
         odds: 2.0,
@@ -883,11 +892,11 @@ export default function App() {
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 {[
                   { id: 'all', label: 'All Duels' },
+                  { id: 'entertainment', label: '🏰 Traitors 2026 & TV' },
                   { id: 'sports', label: '⚽ Sports' },
-                  { id: 'culinary', label: '🍳 Cooking & Food' },
+                  { id: 'gaming', label: '🎮 Gaming & Esports' },
                   { id: 'tech', label: '💻 Tech & AI' },
-                  { id: 'entertainment', label: '🎬 Entertainment' },
-                  { id: 'gaming', label: '🎮 Gaming' },
+                  { id: 'culinary', label: '🍳 Cooking & Food' },
                   { id: 'culture', label: '🌍 Culture' },
                 ].map((c) => (
                   <button
@@ -921,13 +930,13 @@ export default function App() {
 
               {sortedArenaBets.length === 0 ? (
                 <div className="p-12 rounded-3xl bg-slate-900/60 border border-slate-800 text-center max-w-xl mx-auto space-y-4 shadow-xl">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-500/20 to-blue-600/20 border border-sky-500/30 flex items-center justify-center text-sky-400 mx-auto">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
                     <Sparkles className="w-8 h-8 animate-pulse" />
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-white">The Arena is Ready for Real-World Duels</h3>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      All previous wagers have been cleared. Launch the Google Gemini Oracle to scan upcoming football matches, CS2 esports, and Street Fighter 6 tournaments, or host your own showdown.
+                      Celebrity Traitors UK 2026 is airing right now on BBC One & iPlayer! Scan Gemini to discover who will be murdered in the turret or banished at Claudia's Round Table tonight, or explore Champions League & esports showdowns.
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
@@ -936,10 +945,10 @@ export default function App() {
                         sound.playClick();
                         setIsAiDiscoverOpen(true);
                       }}
-                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-sky-500/20 active:scale-95 transition-all"
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-sky-600 hover:from-emerald-400 hover:to-sky-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
                     >
                       <Sparkles className="w-4 h-4" />
-                      <span>Scan Real-World Duels (Gemini)</span>
+                      <span>🏰 Scan Celebrity Traitors 2026 Bets</span>
                     </button>
                     <button
                       onClick={() => {

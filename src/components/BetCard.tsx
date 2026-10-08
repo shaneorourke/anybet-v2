@@ -75,11 +75,27 @@ export const BetCard: React.FC<BetCardProps> = ({
                     e.stopPropagation();
                     sound.playClick();
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#9146FF]/90 hover:bg-[#9146FF] text-white font-bold text-[10px] shadow-sm transition-transform active:scale-95"
-                  title="Watch Live on Twitch"
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-white font-bold text-[10px] shadow-sm transition-transform active:scale-95 ${
+                    bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
+                      ? 'bg-red-600/90 hover:bg-red-600'
+                      : bet.twitchUrl.toLowerCase().includes('twitch')
+                      ? 'bg-[#9146FF]/90 hover:bg-[#9146FF]'
+                      : 'bg-sky-600/90 hover:bg-sky-600'
+                  }`}
+                  title={
+                    bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
+                      ? 'Watch on BBC iPlayer'
+                      : 'Watch Broadcast'
+                  }
                 >
                   <Tv className="w-3 h-3 animate-pulse" />
-                  <span>Twitch</span>
+                  <span>
+                    {bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
+                      ? 'BBC iPlayer'
+                      : bet.twitchUrl.toLowerCase().includes('twitch')
+                      ? 'Twitch'
+                      : 'Watch Live'}
+                  </span>
                 </a>
               )}
 
