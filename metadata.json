@@ -1,0 +1,6 @@
+{
+  "name": "VERSUS - Social Prediction Arena",
+  "description": "Create and wager fake coins on any head-to-head X vs Y showdown, track odds, climb the global leaderboard, and verify outcomes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,115 @@
+import { Bet, LeaderboardUser, UserProfile, InAppNotification } from '../types';
+
+export const CURRENT_USER: UserProfile = {
+  id: 'user_current',
+  name: 'Shane O\'Rourke',
+  username: 'shaneo_predicts',
+  avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ShaneVS&backgroundColor=0f172a',
+  balance: 1000,
+  totalWagered: 0,
+  totalWon: 0,
+  betsWon: 0,
+  betsLost: 0,
+  winStreak: 0,
+  bestStreak: 0,
+  xp: 150,
+  level: 1,
+  lastDailyBonus: null,
+  badges: [
+    {
+      id: 'market_maker',
+      title: 'Market Creator',
+      description: 'Ready to launch head-to-head showdowns',
+      icon: '⚡',
+      unlockedAt: '2026-10-07',
+    },
+    {
+      id: 'ai_oracle',
+      title: 'AI Grounded',
+      description: 'Powered by Google Gemini Live Search',
+      icon: '🤖',
+      unlockedAt: '2026-10-07',
+    },
+  ],
+};
+
+// All pre-existing matches cleared as requested. User will generate real-world matches with Gemini.
+export const INITIAL_BETS: Bet[] = [];
+
+export const INITIAL_LEADERBOARD: LeaderboardUser[] = [
+  {
+    id: 'user_top1',
+    name: 'Oracle_Zeus',
+    username: 'zeus_predictions',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ZeusOracle&backgroundColor=0369a1',
+    balance: 18450,
+    profit: 14200,
+    winRate: 84,
+    betsWon: 42,
+    betsTotal: 50,
+    streak: 8,
+    rank: 1,
+    badge: '👑 Grand Oracle',
+  },
+  {
+    id: 'user_top2',
+    name: 'ApexForecaster',
+    username: 'apex_trader',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ApexForecaster&backgroundColor=047857',
+    balance: 14200,
+    profit: 9850,
+    winRate: 77,
+    betsWon: 34,
+    betsTotal: 44,
+    streak: 5,
+    rank: 2,
+    badge: '⚡ High Roller',
+  },
+  {
+    id: 'user_top3',
+    name: 'Elena Rostova',
+    username: 'elena_r',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ElenaR&backgroundColor=7c3aed',
+    balance: 11800,
+    profit: 7600,
+    winRate: 72,
+    betsWon: 28,
+    betsTotal: 39,
+    streak: 4,
+    rank: 3,
+    badge: '🎯 Sharp Shooter',
+  },
+  {
+    id: 'user_current',
+    name: 'Shane O\'Rourke (You)',
+    username: 'shaneo_predicts',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ShaneVS&backgroundColor=0f172a',
+    balance: 1000,
+    profit: 0,
+    winRate: 0,
+    betsWon: 0,
+    betsTotal: 0,
+    streak: 0,
+    rank: 4,
+    badge: '🔥 Rising Star',
+  },
+];
+
+export const INITIAL_NOTIFICATIONS: InAppNotification[] = [
+  {
+    id: 'notif_welcome',
+    type: 'community',
+    title: 'Welcome to AnyBet Arena! ⚡',
+    message: 'The arena is fresh and ready! Click "Real-World Duels (Gemini)" to scan live pro matches or create your own custom X vs Y duel.',
+    timestamp: 'Just now',
+    read: false,
+  },
+  {
+    id: 'notif_faucet',
+    type: 'bonus',
+    title: 'Daily Coin Drop Ready 🎁',
+    message: 'Claim your daily +250 $VS Coins faucet bonus. (Available once every 24 hours)',
+    timestamp: 'Today',
+    read: false,
+  },
+];
