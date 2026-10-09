@@ -436,11 +436,18 @@ export default function App() {
 
         if (data.concluded && data.winner) {
           sound.playWin();
+          // Immediately settle the duel and distribute payouts!
+          handleResolveBet(
+            targetBet.id,
+            data.winner,
+            data.summary || 'Verified and settled by Google Gemini Live Oracle.'
+          );
+
           triggerNotification({
             id: `notif_${Date.now()}`,
             type: 'creator_resolution',
-            title: 'Gemini Verified Live Result! 🤖',
-            message: `Match finished: ${data.summary.slice(0, 100)}...`,
+            title: 'Gemini Verified Live Result! 🤖🏆',
+            message: `${data.winnerName || (data.winner === 'X' ? targetBet.sideX.name : targetBet.sideY.name)} won! Market settled & payouts distributed.`,
             timestamp: 'Just now',
             read: false,
             betId: targetBet.id,
@@ -450,7 +457,7 @@ export default function App() {
             id: `notif_${Date.now()}`,
             type: 'community',
             title: 'Gemini Match Status Checked ℹ️',
-            message: `Current report: ${data.summary.slice(0, 110)}...`,
+            message: data.summary ? `${data.summary.slice(0, 110)}...` : 'Match in progress / broadcast scheduled.',
             timestamp: 'Just now',
             read: false,
             betId: targetBet.id,
@@ -507,6 +514,21 @@ export default function App() {
       match.title.toLowerCase().includes('murder') ||
       match.title.toLowerCase().includes('banish');
 
+    // Calculate realistic endDate based on exact hoursUntil or scheduledEnd
+    const hours = typeof match.hoursUntil === 'number'
+      ? match.hoursUntil
+      : (typeof match.daysUntil === 'number' ? match.daysUntil * 24 : 10);
+
+    let endDate: string;
+    if (match.scheduledEnd) {
+      endDate = new Date(match.scheduledEnd).toISOString();
+    } else if (match.isConcluded || hours === 0) {
+      // Concluded match (e.g. Episode 3 Richard E. Grant banishment)
+      endDate = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    } else {
+      endDate = new Date(Date.now() + Math.max(1, hours) * 60 * 60 * 1000).toISOString();
+    }
+
     const newBet: Bet = {
       id: `bet_ai_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       title: match.title,
@@ -520,7 +542,7 @@ export default function App() {
         : '/src/assets/images/match_cs2_major_1791405968984.jpg',
       twitchUrl: match.twitchUrl || (isTraitorsOrTv ? 'https://www.bbc.co.uk/iplayer' : match.category === 'gaming' ? 'https://www.twitch.tv/eslcs' : undefined),
       isRealWorld: true,
-      eventLeague: match.eventLeague || (isTraitorsOrTv ? 'The Traitors UK (BBC One)' : 'Global Invitational'),
+      eventLeague: match.eventLeague || (isTraitorsOrTv ? 'Celebrity Traitors UK 2026 (BBC One)' : 'Global Invitational'),
       sideX: {
         id: 'X',
         name: match.sideXName,
@@ -546,7 +568,7 @@ export default function App() {
         isCurrentUser: false,
       },
       createdAt: new Date().toISOString(),
-      endDate: new Date(Date.now() + (match.daysUntil || 3) * 24 * 60 * 60 * 1000).toISOString(),
+      endDate,
       status: 'active',
       wagers: [],
       stats: {

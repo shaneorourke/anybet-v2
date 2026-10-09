@@ -221,7 +221,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
           )}
 
           {/* Real-World Gemini Search Oracle Verification Card */}
-          {isActive && onAiVerifyOutcome && (
+          {((isActive && onAiVerifyOutcome) || bet.lastAiCheck) && (
             <div className="p-4 rounded-xl bg-slate-950 border border-sky-500/30 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -230,26 +230,28 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                     Google Gemini Search Oracle
                   </span>
                 </div>
-                <button
-                  type="button"
-                  disabled={isAiChecking}
-                  onClick={() => {
-                    sound.playClick();
-                    onAiVerifyOutcome(bet);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isAiChecking ? 'animate-spin' : ''}`} />
-                  <span>{isAiChecking ? 'Checking Grounding...' : 'Check Live Result with Search'}</span>
-                </button>
+                {isActive && onAiVerifyOutcome && (
+                  <button
+                    type="button"
+                    disabled={isAiChecking}
+                    onClick={() => {
+                      sound.playClick();
+                      onAiVerifyOutcome(bet);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isAiChecking ? 'animate-spin' : ''}`} />
+                    <span>{isAiChecking ? 'Checking Grounding...' : 'Check Live Result with Search'}</span>
+                  </button>
+                )}
               </div>
 
               {bet.lastAiCheck ? (
                 <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-2">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Last Verified: {new Date(bet.lastAiCheck.timestamp).toLocaleTimeString()}</span>
+                    <span>Verified: {new Date(bet.lastAiCheck.timestamp).toLocaleTimeString()}</span>
                     <span className={`font-bold ${bet.lastAiCheck.concluded ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      {bet.lastAiCheck.concluded ? 'Result Concluded' : 'Match Scheduled / In Progress'}
+                      {bet.lastAiCheck.concluded ? 'Official Result Verified' : 'Match Scheduled / In Progress'}
                     </span>
                   </div>
 
@@ -257,7 +259,22 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                     {bet.lastAiCheck.summary}
                   </p>
 
-                  {bet.lastAiCheck.concluded && bet.lastAiCheck.winner && (
+                  {bet.lastAiCheck.source && (
+                    <div className="pt-1 flex items-center gap-1.5 text-[11px]">
+                      <span className="text-slate-400">Source:</span>
+                      <a
+                        href={bet.lastAiCheck.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-400 hover:text-sky-300 underline flex items-center gap-1 font-semibold truncate max-w-xs"
+                      >
+                        <span className="truncate">{bet.lastAiCheck.source}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                    </div>
+                  )}
+
+                  {isActive && bet.lastAiCheck.concluded && bet.lastAiCheck.winner && (
                     <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
                       <span className="text-xs text-emerald-400 font-bold">
                         Winner Detected: Side {bet.lastAiCheck.winner} ({bet.lastAiCheck.winner === 'X' ? bet.sideX.name : bet.sideY.name})

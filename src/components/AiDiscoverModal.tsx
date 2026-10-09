@@ -107,14 +107,14 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
                     Airing Now • BBC One & iPlayer
                   </span>
                   <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-                    <Flame className="w-3 h-3" /> Celebrity Traitors UK 2026
+                    <Flame className="w-3 h-3" /> Series 2 (2026 Season)
                   </span>
                 </div>
                 <h3 className="text-sm sm:text-base font-extrabold text-white">
-                  UK Celebrity Traitors 2026: Tonight's Murder & Banishment Wagers
+                  Celebrity Traitors UK 2026: Live Episode Wagers & Oracle Settlement
                 </h3>
                 <p className="text-xs text-slate-300 leading-snug">
-                  Featuring the 2026 celebrity cast (Joe Lycett, Romesh Ranganathan, Michael Sheen, Bella Ramsey, James Acaster, Maya Jama, Richard E. Grant & more). Predict who gets murdered in the turret or banished at Claudia's Round Table tonight!
+                  Episode 3 aired Thursday (Richard E. Grant unmasked & banished!). Episode 4 airs tonight Friday at 21:00 BST. Add duels and settle live results instantly with the Gemini Search Oracle!
                 </p>
               </div>
 
@@ -209,8 +209,14 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold mb-1">
                           <span className="uppercase text-sky-400 font-bold">{item.eventLeague || item.category}</span>
                           <span aria-hidden="true">·</span>
-                          <span className={item.daysUntil === 0 ? "text-amber-400 font-bold" : ""}>
-                            {item.daysUntil === 0 ? '🔥 On Tonight!' : `In ${item.daysUntil} days`}
+                          <span className={item.isConcluded || item.hoursUntil === 0 ? "text-emerald-400 font-bold" : item.daysUntil === 0 ? "text-amber-400 font-bold" : ""}>
+                            {item.isConcluded || item.hoursUntil === 0 
+                              ? '🏆 Aired (Ep 3) · Ready to Verify' 
+                              : item.hoursUntil 
+                              ? `🔥 Tonight (~${item.hoursUntil}h)` 
+                              : item.daysUntil === 0 
+                              ? '🔥 On Tonight!' 
+                              : `In ${item.daysUntil} days`}
                           </span>
                           {item.twitchUrl && (
                             <>

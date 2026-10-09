@@ -39,12 +39,54 @@ const CATEGORIES: { id: Category; label: string; icon: string }[] = [
 ];
 
 const PRESETS = [
-  { sideX: 'Joe Lycett (Banished)', sideY: 'Romesh Ranganathan (Survives)', title: 'Celebrity Traitors UK 2026: Who is Banished at the Round Table Tonight?', cat: 'entertainment' as Category },
-  { sideX: 'Michael Sheen (Murdered in Turret)', sideY: 'Bella Ramsey (Survives)', title: 'Celebrity Traitors UK 2026: Who is Murdered Overnight by the Traitors?', cat: 'entertainment' as Category },
-  { sideX: 'Jim (Woodfire Smoker)', sideY: 'John (Pastry & Flambé)', title: 'Cooking Showdown: Jim vs John Culinary Duel', cat: 'culinary' as Category },
-  { sideX: 'England', sideY: 'Spain', title: 'England vs Spain Football Showdown', cat: 'sports' as Category },
-  { sideX: 'Tesla', sideY: 'BYD', title: 'Tesla vs BYD Global EV Deliveries Race', cat: 'tech' as Category },
-  { sideX: 'Marvel Studios', sideY: 'DC Studios', title: 'Marvel vs DC Box Office Battle', cat: 'entertainment' as Category },
+  { 
+    sideX: 'Richard E. Grant (Banished)', 
+    sideY: 'James Acaster (Survives)', 
+    title: 'Celebrity Traitors UK 2026 (Ep 3): Round Table Traitor Banishment — Richard E. Grant vs James Acaster', 
+    cat: 'entertainment' as Category,
+    hours: 1, // Concluded episode / ready to verify
+    rules: 'Official BBC One broadcast reveal: First Traitor exposed & banished at Claudia Winkleman\'s Round Table in Episode 3.'
+  },
+  { 
+    sideX: 'Michael Sheen (Murdered in Turret)', 
+    sideY: 'Bella Ramsey (Survives)', 
+    title: 'Celebrity Traitors UK 2026 (Ep 4 Tonight): Who will the Traitors Murder in the Turret?', 
+    cat: 'entertainment' as Category,
+    hours: 10, // Tonight at 21:00 BST BBC One
+    rules: 'Official BBC One broadcast tonight: Contestant murdered by Traitors Maya Jama & James Acaster before breakfast.'
+  },
+  { 
+    sideX: 'Joe Lycett (Banished)', 
+    sideY: 'Romesh Ranganathan (Survives)', 
+    title: 'Celebrity Traitors UK 2026 (Ep 4 Tonight): Who is Banished at the Round Table Tonight?', 
+    cat: 'entertainment' as Category,
+    hours: 10, // Tonight at 21:00 BST BBC One
+    rules: 'Official BBC One Episode 4 broadcast tonight: Celebrity receiving the most banishment votes at the Round Table.'
+  },
+  { 
+    sideX: 'Jim (Woodfire Smoker)', 
+    sideY: 'John (Pastry & Flambé)', 
+    title: 'Cooking Showdown: Jim vs John Culinary Duel', 
+    cat: 'culinary' as Category,
+    hours: 24,
+    rules: 'First party to achieve verified outcome takes the decision.'
+  },
+  { 
+    sideX: 'England', 
+    sideY: 'Spain', 
+    title: 'England vs Spain Football Showdown', 
+    cat: 'sports' as Category,
+    hours: 48,
+    rules: 'Official 90-minute regular play whistle result.'
+  },
+  { 
+    sideX: 'Tesla', 
+    sideY: 'BYD', 
+    title: 'Tesla vs BYD Global EV Deliveries Race', 
+    cat: 'tech' as Category,
+    hours: 72,
+    rules: 'Quarterly official investor relation deliveries report.'
+  },
 ];
 
 export const CreateBetModal: React.FC<CreateBetModalProps> = ({
@@ -60,7 +102,7 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Category>('sports');
   const [rules, setRules] = useState('');
-  const [deadlineDays, setDeadlineDays] = useState<number>(3);
+  const [deadlineHours, setDeadlineHours] = useState<number>(10);
   const [seedAmount, setSeedAmount] = useState<number>(50);
 
   // Update title automatically if user hasn't typed custom title
@@ -84,7 +126,8 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
     setSideYName(preset.sideY);
     setTitle(preset.title);
     setCategory(preset.cat);
-    setRules(`First party to achieve verified outcome takes the decision. Creator confirms result.`);
+    setDeadlineHours(preset.hours);
+    setRules(preset.rules);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -93,14 +136,14 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
 
     sound.playBetPlaced();
 
-    const endDate = new Date(Date.now() + deadlineDays * 24 * 60 * 60 * 1000).toISOString();
+    const endDate = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
 
     onCreateBet({
       title: title.trim(),
       category,
       sideXName: sideXName.trim(),
       sideYName: sideYName.trim(),
-      rules: rules.trim() || `The participant who wins the official contest takes the decision. Creator must report outcome before ${new Date(endDate).toLocaleDateString()}.`,
+      rules: rules.trim() || `The participant who wins the official contest takes the decision. Creator confirms result before ${new Date(endDate).toLocaleString()}.`,
       endDate,
       seedAmount: Math.min(seedAmount, user.balance),
     });
@@ -241,25 +284,25 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
                 Resolution Deadline
               </label>
               <span className="text-xs text-slate-400 font-medium">
-                Ends: {new Date(Date.now() + deadlineDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                {deadlineHours <= 12 ? `Tonight in ${deadlineHours}h` : `Ends: ${new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toLocaleString()}`}
               </span>
             </div>
             <div className="grid grid-cols-4 gap-2">
               {[
-                { days: 1, label: '24 Hours' },
-                { days: 3, label: '3 Days' },
-                { days: 7, label: '1 Week' },
-                { days: 14, label: '2 Weeks' },
+                { hours: 10, label: 'Tonight (~10h)' },
+                { hours: 24, label: '24 Hours' },
+                { hours: 72, label: '3 Days' },
+                { hours: 168, label: '1 Week' },
               ].map((d) => (
                 <button
-                  key={d.days}
+                  key={d.hours}
                   type="button"
                   onClick={() => {
                     sound.playClick();
-                    setDeadlineDays(d.days);
+                    setDeadlineHours(d.hours);
                   }}
-                  className={`py-2 px-3 rounded-lg text-xs font-medium border transition-colors ${
-                    deadlineDays === d.days
+                  className={`py-2 px-2.5 rounded-lg text-xs font-medium border transition-colors ${
+                    deadlineHours === d.hours
                       ? 'bg-slate-800 border-emerald-500 text-emerald-400 font-bold'
                       : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                   }`}
