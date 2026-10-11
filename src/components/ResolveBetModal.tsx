@@ -28,8 +28,16 @@ export const ResolveBetModal: React.FC<ResolveBetModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [selectedOutcome, setSelectedOutcome] = useState<'X' | 'Y' | 'refunded'>('X');
-  const [notes, setNotes] = useState('');
+  const initialOutcome: 'X' | 'Y' | 'refunded' = 
+    bet.lastAiCheck?.concluded && bet.lastAiCheck.winner
+      ? bet.lastAiCheck.winner
+      : 'X';
+
+  const initialNotes = 
+    bet.lastAiCheck?.summary || 'Official resolution confirmed and audited.';
+
+  const [selectedOutcome, setSelectedOutcome] = useState<'X' | 'Y' | 'refunded'>(initialOutcome);
+  const [notes, setNotes] = useState(initialNotes);
 
   const winningPool = selectedOutcome === 'X' ? bet.sideX.pool : bet.sideY.pool;
   const losingPool = selectedOutcome === 'X' ? bet.sideY.pool : bet.sideX.pool;
@@ -46,7 +54,7 @@ export const ResolveBetModal: React.FC<ResolveBetModalProps> = ({
       }
     } catch {}
 
-    onResolve(bet.id, selectedOutcome, notes || `Official resolution confirmed by creator.`);
+    onResolve(bet.id, selectedOutcome, notes || `Official resolution confirmed.`);
     onClose();
   };
 
@@ -60,10 +68,10 @@ export const ResolveBetModal: React.FC<ResolveBetModalProps> = ({
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
           <div>
             <span className="text-[11px] uppercase tracking-wider font-bold text-amber-400">
-              Creator Settlement Portal
+              {bet.lastAiCheck?.concluded ? '🤖 Google Gemini Verified Settlement' : 'Showdown Settlement Portal'}
             </span>
             <h2 className="text-base sm:text-lg font-bold text-white">
-              Declare Official Showdown Outcome
+              {bet.lastAiCheck?.concluded ? 'Confirm Outcome & Distribute Winnings' : 'Declare Official Showdown Outcome'}
             </h2>
           </div>
           <button

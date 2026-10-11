@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Bet, UserProfile } from '../types';
-import { calculateOdds, calculateProjectedReturn, formatCoins } from '../utils/odds';
+import { calculateOdds, calculateProjectedReturn, formatCoins, getTimeRemaining } from '../utils/odds';
 import { sound } from '../utils/audio';
 
 interface WagerModalProps {
@@ -40,6 +40,9 @@ export const WagerModal: React.FC<WagerModalProps> = ({
   const [submitted, setSubmitted] = useState<boolean>(false);
   const [lastWagerInfo, setLastWagerInfo] = useState<{ amount: number; side: 'X' | 'Y' } | null>(null);
 
+  const timeInfo = getTimeRemaining(bet.endDate);
+  const isExpired = timeInfo.isExpired || bet.status !== 'active';
+
   const { oddsX, oddsY } = calculateOdds(bet.sideX.pool, bet.sideY.pool);
   const currentOdds = selectedSide === 'X' ? oddsX : oddsY;
   const currentSideObj = selectedSide === 'X' ? bet.sideX : bet.sideY;
@@ -63,7 +66,7 @@ export const WagerModal: React.FC<WagerModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (amount <= 0 || amount > user.balance) return;
+    if (isExpired || amount <= 0 || amount > user.balance) return;
 
     sound.playBetPlaced();
     sound.triggerHaptic();
@@ -113,6 +116,13 @@ export const WagerModal: React.FC<WagerModalProps> = ({
         {/* Content */}
         {!submitted ? (
           <form onSubmit={handleSubmit} className="p-5 space-y-5">
+            {isExpired && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                <strong className="block font-bold">🔒 Betting Closed (Deadline Passed)</strong>
+                <span>The scheduled resolution deadline for this duel has concluded. New wagers cannot be placed. Open the match details to inspect outcomes or view settlement.</span>
+              </div>
+            )}
+
             {/* Pick Selection Segmented Control */}
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-2">
@@ -242,16 +252,16 @@ export const WagerModal: React.FC<WagerModalProps> = ({
             {/* Submit Action */}
             <button
               type="submit"
-              disabled={amount <= 0 || amount > user.balance}
+              disabled={isExpired || amount <= 0 || amount > user.balance}
               className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
-                amount > 0 && amount <= user.balance
+                !isExpired && amount > 0 && amount <= user.balance
                   ? selectedSide === 'X'
                     ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 active:scale-98'
                     : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20 active:scale-98'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
             >
-              <span>Place {amount} $VS Wager</span>
+              <span>{isExpired ? 'Betting Closed for this Event' : `Place ${amount} $VS Wager`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

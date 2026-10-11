@@ -51,14 +51,16 @@ export default function App() {
 
   const [bets, setBets] = useState<Bet[]>(() => {
     try {
-      if (localStorage.getItem('versus_app_version') !== 'v4') {
+      if (localStorage.getItem('versus_app_version') !== 'v5') {
+        localStorage.setItem('versus_app_version', 'v5');
         localStorage.removeItem('versus_bets');
-        return [];
+        return INITIAL_BETS;
       }
       const saved = localStorage.getItem('versus_bets');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_BETS;
     } catch {
-      return [];
+      return INITIAL_BETS;
     }
   });
 
@@ -152,6 +154,20 @@ export default function App() {
 
     const targetBet = bets.find((b) => b.id === betId);
     if (!targetBet) return;
+
+    const timeRemaining = getTimeRemaining(targetBet.endDate);
+    if (targetBet.status !== 'active' || timeRemaining.isExpired) {
+      triggerNotification({
+        id: `notif_${Date.now()}`,
+        type: 'community',
+        title: 'Betting Closed 🔒',
+        message: `The deadline for "${targetBet.title}" has passed. Wagers can no longer be placed. Check live results to view payouts.`,
+        timestamp: 'Just now',
+        read: false,
+        betId,
+      });
+      return;
+    }
 
     const { oddsX, oddsY } = calculateOdds(targetBet.sideX.pool, targetBet.sideY.pool);
     const lockedOdds = side === 'X' ? oddsX : oddsY;
@@ -303,49 +319,69 @@ export default function App() {
 
   // Settle & Resolve Bet Handler
   const handleResolveBet = (betId: string, outcome: 'X' | 'Y' | 'refunded', notes: string) => {
-    const targetBet = bets.find((b) => b.id === betId);
-    if (!targetBet) return;
-
     let userPayoutTotal = 0;
     let userWonWagers = 0;
     let userLostWagers = 0;
+    let resolvedTitle = '';
+    let sideXLabel = '';
+    let sideYLabel = '';
 
-    const updatedWagers = targetBet.wagers.map((w) => {
-      if (outcome === 'refunded') {
-        if (w.userId === user.id) {
-          userPayoutTotal += w.amount;
-        }
-        return { ...w, status: 'refunded' as const, payout: w.amount };
+    setBets((prevBets) => {
+      const targetBet = prevBets.find((b) => b.id === betId);
+      if (!targetBet) return prevBets;
+      if (targetBet.status === 'resolved' || targetBet.status === 'cancelled_refunded') {
+        return prevBets;
       }
 
-      if (w.side === outcome) {
-        const payout = Math.round(w.amount * w.oddsAtBet);
-        if (w.userId === user.id) {
-          userPayoutTotal += payout;
-          userWonWagers++;
-        }
-        return { ...w, status: 'won' as const, payout };
-      } else {
-        if (w.userId === user.id) {
-          userLostWagers++;
-        }
-        return { ...w, status: 'lost' as const };
-      }
-    });
+      resolvedTitle = targetBet.title;
+      sideXLabel = targetBet.sideX.name;
+      sideYLabel = targetBet.sideY.name;
 
-    const updatedBets = bets.map((b) => {
-      if (b.id !== betId) return b;
-      return {
-        ...b,
+      const updatedWagers = targetBet.wagers.map((w) => {
+        if (outcome === 'refunded') {
+          if (w.userId === user.id) {
+            userPayoutTotal += w.amount;
+          }
+          return { ...w, status: 'refunded' as const, payout: w.amount };
+        }
+
+        if (w.side === outcome) {
+          const payout = Math.round(w.amount * w.oddsAtBet);
+          if (w.userId === user.id) {
+            userPayoutTotal += payout;
+            userWonWagers++;
+          }
+          return { ...w, status: 'won' as const, payout };
+        } else {
+          if (w.userId === user.id) {
+            userLostWagers++;
+          }
+          return { ...w, status: 'lost' as const };
+        }
+      });
+
+      const isCreator = targetBet.creator.id === user.id || targetBet.creator.isCurrentUser;
+      if (outcome === 'refunded' && isCreator) {
+        const totalWagerAmount = targetBet.wagers.reduce((sum, w) => sum + w.amount, 0);
+        const creatorSeedRemaining = Math.max(0, targetBet.totalPot - totalWagerAmount);
+        if (creatorSeedRemaining > 0) {
+          userPayoutTotal += creatorSeedRemaining;
+        }
+      }
+
+      const resolvedBet: Bet = {
+        ...targetBet,
         status: outcome === 'refunded' ? ('cancelled_refunded' as const) : ('resolved' as const),
         outcome,
         resolutionNotes: notes,
         resolvedAt: new Date().toISOString(),
         wagers: updatedWagers,
       };
-    });
 
-    setBets(updatedBets);
+      setDetailModalBet((curr) => (curr?.id === betId ? resolvedBet : curr));
+
+      return prevBets.map((b) => (b.id === betId ? resolvedBet : b));
+    });
 
     // Update User Record & Balance
     if (userPayoutTotal > 0 || userLostWagers > 0) {
@@ -370,13 +406,13 @@ export default function App() {
         id: `notif_${Date.now()}`,
         type: 'bet_refunded',
         title: 'Duel Refunded 100% 🔄',
-        message: `"${targetBet.title}" was cancelled. All stakes returned to participants.`,
+        message: `"${resolvedTitle || 'Showdown'}" was cancelled. All stakes returned to participants.`,
         timestamp: 'Just now',
         read: false,
         betId,
       });
     } else {
-      const winnerName = outcome === 'X' ? targetBet.sideX.name : targetBet.sideY.name;
+      const winnerName = outcome === 'X' ? (sideXLabel || 'Side X') : (sideYLabel || 'Side Y');
       triggerNotification({
         id: `notif_${Date.now()}`,
         type: userWonWagers > 0 ? 'bet_won' : 'creator_resolution',
@@ -428,11 +464,8 @@ export default function App() {
           source: data.sources?.[0],
         };
 
-        const updated = bets.map((b) => (b.id === targetBet.id ? { ...b, lastAiCheck } : b));
-        setBets(updated);
-        if (detailModalBet?.id === targetBet.id) {
-          setDetailModalBet({ ...targetBet, lastAiCheck });
-        }
+        setBets((prev) => prev.map((b) => (b.id === targetBet.id ? { ...b, lastAiCheck } : b)));
+        setDetailModalBet((curr) => (curr?.id === targetBet.id ? { ...curr, lastAiCheck } : curr));
 
         if (data.concluded && data.winner) {
           sound.playWin();
@@ -999,6 +1032,9 @@ export default function App() {
                         setShareModalSide('X');
                         setShareModalAmount(100);
                       }}
+                      onAiVerifyOutcome={handleAiVerifyOutcome}
+                      onOpenResolve={(b) => setResolveModalBet(b)}
+                      isAiChecking={isAiChecking}
                     />
                   ))}
                 </div>
@@ -1020,6 +1056,8 @@ export default function App() {
               setShareModalAmount(amt);
             }}
             onViewDetails={(b) => setDetailModalBet(b)}
+            onAiVerifyOutcome={handleAiVerifyOutcome}
+            isAiChecking={isAiChecking}
           />
         )}
 
@@ -1058,6 +1096,9 @@ export default function App() {
                     setShareModalBet(b);
                     setShareModalSide('X');
                   }}
+                  onAiVerifyOutcome={handleAiVerifyOutcome}
+                  onOpenResolve={(b) => setResolveModalBet(b)}
+                  isAiChecking={isAiChecking}
                 />
               ))}
             </div>
@@ -1094,7 +1135,7 @@ export default function App() {
       {/* 2. Bet Detail & Stats Modal */}
       {detailModalBet && (
         <BetDetailModal
-          bet={detailModalBet}
+          bet={bets.find((b) => b.id === detailModalBet.id) || detailModalBet}
           user={user}
           isOpen={!!detailModalBet}
           onClose={() => setDetailModalBet(null)}

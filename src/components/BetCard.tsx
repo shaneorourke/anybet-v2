@@ -22,6 +22,9 @@ interface BetCardProps {
   onQuickWager: (bet: Bet, side: 'X' | 'Y') => void;
   onViewDetails: (bet: Bet) => void;
   onShare: (bet: Bet) => void;
+  onAiVerifyOutcome?: (bet: Bet) => Promise<void>;
+  onOpenResolve?: (bet: Bet) => void;
+  isAiChecking?: boolean;
 }
 
 export const BetCard: React.FC<BetCardProps> = ({
@@ -29,6 +32,9 @@ export const BetCard: React.FC<BetCardProps> = ({
   onQuickWager,
   onViewDetails,
   onShare,
+  onAiVerifyOutcome,
+  onOpenResolve,
+  isAiChecking = false,
 }) => {
   const { oddsX, oddsY, percentX, percentY } = calculateOdds(bet.sideX.pool, bet.sideY.pool);
   const timeInfo = getTimeRemaining(bet.endDate);
@@ -36,7 +42,9 @@ export const BetCard: React.FC<BetCardProps> = ({
 
   const isResolved = bet.status === 'resolved';
   const isRefunded = bet.status === 'cancelled_refunded';
+  const isExpired = timeInfo.isExpired;
   const isActive = bet.status === 'active';
+  const canBet = isActive && !isExpired;
 
   return (
     <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-slate-950/50">
@@ -174,18 +182,32 @@ export const BetCard: React.FC<BetCardProps> = ({
             {bet.title}
           </h3>
 
-          {/* Status Alert if Resolved or Refunded */}
+          {/* Status Alert if Resolved, Refunded, or Awaiting Settlement */}
           {isResolved && (
-            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-500/20">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Resolved: {bet.outcome === 'X' ? bet.sideX.name : bet.sideY.name} Won</span>
             </div>
           )}
 
           {isRefunded && (
-            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-amber-400">
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-lg border border-amber-500/20">
               <RotateCcw className="w-4 h-4 text-amber-400 shrink-0" />
               <span>Outcome Unverified · 100% Wagers Returned</span>
+            </div>
+          )}
+
+          {!isResolved && !isRefunded && bet.lastAiCheck?.concluded && bet.lastAiCheck.winner && (
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-sky-400 bg-sky-500/10 px-2.5 py-1.5 rounded-lg border border-sky-500/20">
+              <Bot className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>Gemini Verified: {bet.lastAiCheck.winner === 'X' ? bet.sideX.name : bet.sideY.name} Won (Ready to Settle)</span>
+            </div>
+          )}
+
+          {!isResolved && !isRefunded && isExpired && !bet.lastAiCheck?.concluded && (
+            <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-1.5 rounded-lg border border-amber-500/20">
+              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Deadline Passed · Awaiting Result Settlement</span>
             </div>
           )}
         </div>
@@ -259,7 +281,7 @@ export const BetCard: React.FC<BetCardProps> = ({
 
         {/* Action Controls */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
-          {isActive ? (
+          {canBet ? (
             <>
               <button
                 onClick={() => {
@@ -290,6 +312,46 @@ export const BetCard: React.FC<BetCardProps> = ({
                 title="View Match Stats & Details"
               >
                 <BarChart3 className="w-4 h-4" />
+              </button>
+            </>
+          ) : isActive && isExpired ? (
+            <>
+              {onAiVerifyOutcome && (!bet.lastAiCheck?.concluded || !bet.lastAiCheck.winner) ? (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onAiVerifyOutcome(bet);
+                  }}
+                  disabled={isAiChecking}
+                  className="flex-1 py-2 px-3 text-xs font-bold rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  title="Check Real-World Outcome via Google Gemini & BBC Grounding"
+                >
+                  <Bot className={`w-3.5 h-3.5 ${isAiChecking ? 'animate-spin' : ''}`} />
+                  <span>{isAiChecking ? 'Checking Result...' : '🤖 Check Live Result & Payout'}</span>
+                </button>
+              ) : onOpenResolve ? (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenResolve(bet);
+                  }}
+                  className="flex-1 py-2 px-3 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>⚡ Settle Duel & Distribute Pot</span>
+                </button>
+              ) : null}
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onViewDetails(bet);
+                }}
+                className="py-2 px-3 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors flex items-center gap-1"
+                title="View Details"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Details</span>
               </button>
             </>
           ) : (

@@ -26,6 +26,8 @@ interface MyBetsDashboardProps {
   onOpenResolve: (bet: Bet) => void;
   onOpenShare: (bet: Bet, side: 'X' | 'Y', amount: number) => void;
   onViewDetails: (bet: Bet) => void;
+  onAiVerifyOutcome?: (bet: Bet) => Promise<void>;
+  isAiChecking?: boolean;
 }
 
 export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
@@ -35,6 +37,8 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
   onOpenResolve,
   onOpenShare,
   onViewDetails,
+  onAiVerifyOutcome,
+  isAiChecking = false,
 }) => {
   const [subTab, setSubTab] = useState<'active' | 'history' | 'created'>('active');
 
@@ -51,6 +55,7 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
   const activeWagers = allUserWagers.filter((item) => item.bet.status === 'active');
   const pastWagers = allUserWagers.filter((item) => item.bet.status !== 'active');
   const createdBets = bets.filter((b) => b.creator.isCurrentUser || b.creator.id === user.id);
+  const awaitingSettlementCount = activeWagers.filter((item) => getTimeRemaining(item.bet.endDate).isExpired).length;
 
   // Stats calculation
   const totalStakedActive = activeWagers.reduce((acc, curr) => acc + curr.wager.amount, 0);
@@ -176,6 +181,22 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
       {/* Tab 1: Active Wagers */}
       {subTab === 'active' && (
         <div className="space-y-3">
+          {awaitingSettlementCount > 0 && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <span className="font-bold text-amber-300 block">
+                    {awaitingSettlementCount} Prediction{awaitingSettlementCount > 1 ? 's' : ''} Awaiting Outcome Settlement
+                  </span>
+                  <span className="text-slate-300 text-[11px]">
+                    Events have passed their resolution deadline. Use "Check Live Result" or "Settle Duel" below to claim your winnings immediately.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeWagers.length === 0 ? (
             <div className="p-10 rounded-2xl bg-slate-900/60 border border-slate-800 text-center">
               <Coins className="w-10 h-10 text-slate-500 mx-auto mb-3" />
@@ -187,19 +208,35 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
           ) : (
             activeWagers.map(({ wager, bet }) => {
               const time = getTimeRemaining(bet.endDate);
+              const isPast = time.isExpired;
+              const hasAiVerified = !!(bet.lastAiCheck?.concluded && bet.lastAiCheck?.winner);
+
               return (
                 <div
                   key={wager.id}
-                  className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className={`p-4 sm:p-5 rounded-2xl bg-slate-900 border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                    isPast ? 'border-amber-500/40 bg-slate-900/95 shadow-md shadow-amber-500/5' : 'border-slate-800 hover:border-slate-700'
+                  }`}
                 >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center gap-2 text-xs">
                       <span className="capitalize text-emerald-400 font-semibold">{bet.category}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-500" />
-                        {time.text}
-                      </span>
+                      <span aria-hidden="true" className="text-slate-600">·</span>
+                      {isPast ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Deadline Passed · Ready for Payout
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-slate-400">
+                          <Clock className="w-3 h-3 text-slate-500" />
+                          {time.text}
+                        </span>
+                      )}
+                      {hasAiVerified && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Gemini Verified
+                        </span>
+                      )}
                     </div>
 
                     <h4 
@@ -220,7 +257,7 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-800">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between sm:justify-end gap-3 sm:gap-4 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-800">
                     <div className="text-left sm:text-right font-mono">
                       <span className="text-[11px] text-slate-400 block font-sans">Staked Amount</span>
                       <span className="text-sm font-bold text-white">{formatCoins(wager.amount)} $VS</span>
@@ -229,7 +266,36 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {isPast && onAiVerifyOutcome && !hasAiVerified && (
+                        <button
+                          onClick={() => {
+                            sound.playClick();
+                            onAiVerifyOutcome(bet);
+                          }}
+                          disabled={isAiChecking}
+                          className="px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                          title="Verify live outcome and pay out with Google Gemini"
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 ${isAiChecking ? 'animate-spin' : ''}`} />
+                          <span>{isAiChecking ? 'Checking...' : 'Check Live Result'}</span>
+                        </button>
+                      )}
+
+                      {isPast && (
+                        <button
+                          onClick={() => {
+                            sound.playClick();
+                            onOpenResolve(bet);
+                          }}
+                          className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1 shadow-md transition-all"
+                          title="Settle duel and distribute payout"
+                        >
+                          <Gavel className="w-3.5 h-3.5" />
+                          <span>Settle Duel</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={() => {
                           sound.playClick();

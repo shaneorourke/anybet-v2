@@ -33,8 +33,106 @@ export const CURRENT_USER: UserProfile = {
   ],
 };
 
-// All pre-existing matches cleared as requested. User will generate real-world matches with Gemini.
-export const INITIAL_BETS: Bet[] = [];
+export const INITIAL_BETS: Bet[] = [
+  {
+    id: 'bet_traitors_ep3',
+    title: 'Celebrity Traitors UK 2026 (Ep 3): Round Table Traitor Banishment — Richard E. Grant vs James Acaster',
+    category: 'entertainment',
+    sideX: {
+      id: 'X',
+      name: 'Richard E. Grant (Banished)',
+      avatarOrFlag: '🗝️',
+      pool: 4500,
+      bettorsCount: 18,
+      odds: 2.1,
+    },
+    sideY: {
+      id: 'Y',
+      name: 'James Acaster (Survives)',
+      avatarOrFlag: '🎭',
+      pool: 5500,
+      bettorsCount: 22,
+      odds: 1.8,
+    },
+    totalPot: 10000,
+    rules: "Official BBC One Episode 3 broadcast: First of the secret Traitors to be unmasked and banished at Claudia Winkleman's Round Table.",
+    creator: {
+      id: 'oracle_ai',
+      name: 'Versus Gemini Oracle',
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=GeminiOracle&backgroundColor=0284c7',
+      isCurrentUser: false,
+    },
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    endDate: new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString(), // Aired last night
+    status: 'active',
+    bannerImage: '/src/assets/images/match_celebrity_traitors_1791480924755.jpg',
+    twitchUrl: 'https://www.bbc.co.uk/iplayer',
+    isRealWorld: true,
+    eventLeague: 'Celebrity Traitors UK 2026 (BBC One)',
+    wagers: [
+      {
+        id: 'wager_shane_richard',
+        betId: 'bet_traitors_ep3',
+        betTitle: 'Celebrity Traitors UK 2026 (Ep 3): Round Table Traitor Banishment — Richard E. Grant vs James Acaster',
+        userId: 'user_current',
+        userName: "Shane O'Rourke",
+        userAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ShaneVS&backgroundColor=0f172a',
+        side: 'X',
+        sideName: 'Richard E. Grant (Banished)',
+        amount: 150,
+        oddsAtBet: 2.1,
+        potentialReturn: 315,
+        timestamp: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
+        status: 'pending',
+      },
+    ],
+    stats: {
+      views: 1240,
+      shares: 88,
+    },
+  },
+  {
+    id: 'bet_traitors_ep4',
+    title: 'Celebrity Traitors UK 2026 (Ep 4 Tonight): Who will the Traitors Murder in the Turret? — Michael Sheen vs Bella Ramsey',
+    category: 'entertainment',
+    sideX: {
+      id: 'X',
+      name: 'Michael Sheen (Murdered)',
+      avatarOrFlag: '🕯️',
+      pool: 3500,
+      bettorsCount: 14,
+      odds: 2.2,
+    },
+    sideY: {
+      id: 'Y',
+      name: 'Bella Ramsey (Survives)',
+      avatarOrFlag: '📜',
+      pool: 4500,
+      bettorsCount: 18,
+      odds: 1.8,
+    },
+    totalPot: 8000,
+    rules: 'Official BBC One Episode 4 broadcast tonight: Celebrity targeted and murdered in the turret by Traitors Maya Jama & James Acaster before breakfast.',
+    creator: {
+      id: 'oracle_ai',
+      name: 'Versus Gemini Oracle',
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=GeminiOracle&backgroundColor=0284c7',
+      isCurrentUser: false,
+    },
+    createdAt: new Date().toISOString(),
+    endDate: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(), // Tonight ~10 hours
+    status: 'active',
+    bannerImage: '/src/assets/images/match_celebrity_traitors_1791480924755.jpg',
+    twitchUrl: 'https://www.bbc.co.uk/iplayer',
+    isRealWorld: true,
+    eventLeague: 'Celebrity Traitors UK 2026 (BBC One)',
+    wagers: [],
+    stats: {
+      views: 890,
+      shares: 42,
+    },
+  },
+];
 
 export const INITIAL_LEADERBOARD: LeaderboardUser[] = [
   {

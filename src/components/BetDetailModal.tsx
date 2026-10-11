@@ -465,27 +465,50 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
             )}
           </div>
 
-          {/* Creator Management Controls */}
-          {isCreator && isActive && (
+          {/* Settlement Portal Controls (Available for Creators, Expired Duels, and Verified Matches) */}
+          {isActive && (isCreator || timeInfo.isExpired || bet.isRealWorld || !!bet.lastAiCheck?.concluded) && (
             <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-                <Gavel className="w-4 h-4 text-amber-400" />
-                <span>Creator Management Portal</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                  <Gavel className="w-4 h-4 text-amber-400" />
+                  <span>{isCreator ? 'Creator Settlement Portal' : 'Showdown Settlement & Payout Portal'}</span>
+                </div>
+                {timeInfo.isExpired && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    Deadline Passed
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-300">
-                As the creator of this duel, you have authority to report the verified result or trigger a cancel/refund.
+                {timeInfo.isExpired
+                  ? 'This showdown’s resolution deadline has passed. Settle the duel now to distribute pool winnings to all winning predictors.'
+                  : 'As creator, declare the verified winner or refund all participants.'}
               </p>
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={() => {
-                    sound.playClick();
-                    onOpenResolve(bet);
-                  }}
-                  className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md"
-                >
-                  <Gavel className="w-3.5 h-3.5" />
-                  <span>Declare Winner & Settle Pot</span>
-                </button>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {bet.lastAiCheck?.concluded && bet.lastAiCheck.winner ? (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenResolve(bet);
+                    }}
+                    className="py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Settle Payouts: {bet.lastAiCheck.winner === 'X' ? bet.sideX.name : bet.sideY.name} Won</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenResolve(bet);
+                    }}
+                    className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md shadow-amber-400/20"
+                  >
+                    <Gavel className="w-3.5 h-3.5" />
+                    <span>Declare Winner & Settle Pot</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => {
@@ -495,7 +518,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                   className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
                   title="Simulate missed deadline auto-refund rule"
                 >
-                  Simulate Expiration Refund
+                  Refund 100% Stakes
                 </button>
               </div>
             </div>
@@ -504,7 +527,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
 
         {/* Bottom CTA Bar */}
         <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center gap-2 shrink-0">
-          {isActive ? (
+          {isActive && !timeInfo.isExpired ? (
             <>
               <button
                 onClick={() => {
@@ -525,6 +548,33 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
               >
                 Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
               </button>
+            </>
+          ) : isActive && timeInfo.isExpired ? (
+            <>
+              {onAiVerifyOutcome && (!bet.lastAiCheck?.concluded || !bet.lastAiCheck.winner) ? (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onAiVerifyOutcome(bet);
+                  }}
+                  disabled={isAiChecking}
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  <Bot className={`w-4 h-4 ${isAiChecking ? 'animate-spin' : ''}`} />
+                  <span>{isAiChecking ? 'Checking Grounding...' : '🤖 Check Live Result with Search & Settle'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenResolve(bet);
+                  }}
+                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 transition-all shadow-md"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>⚡ Settle Duel & Distribute Payouts Now</span>
+                </button>
+              )}
             </>
           ) : (
             <button
