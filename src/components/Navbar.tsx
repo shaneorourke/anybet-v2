@@ -11,7 +11,9 @@ import {
   Sparkles,
   History,
   TrendingUp,
-  LayoutGrid
+  LayoutGrid,
+  Users,
+  UserPlus
 } from 'lucide-react';
 import { UserProfile, InAppNotification } from '../types';
 import { sound } from '../utils/audio';
@@ -25,6 +27,7 @@ interface NavbarProps {
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onClaimDailyBonus: () => void;
+  onOpenAuthModal: () => void;
   notifications: InAppNotification[];
   soundEnabled: boolean;
   onToggleSound: () => void;
@@ -38,6 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile,
   onOpenNotifications,
   onClaimDailyBonus,
+  onOpenAuthModal,
   notifications,
   soundEnabled,
   onToggleSound,
@@ -216,6 +220,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
+          {/* Multi-Account Switcher / Register Button */}
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenAuthModal();
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 text-xs font-semibold transition-all active:scale-95"
+            title="Switch User Account or Create New Profile"
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Accounts</span>
+          </button>
+
           {/* User Profile Avatar */}
           <button
             onClick={() => {
@@ -223,6 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onOpenProfile();
             }}
             className="flex items-center gap-1.5 p-1 rounded-lg hover:bg-slate-800/60 transition-colors"
+            title={`View profile for ${user.name}`}
           >
             <img
               src={user.avatar}
@@ -231,7 +249,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="w-7 h-7 rounded-full bg-slate-800 border border-emerald-500/40"
             />
             <span className="hidden lg:block text-xs font-semibold text-slate-300">
-              Lv.{user.level}
+              {user.name.split(' ')[0]} (Lv.{user.level})
             </span>
           </button>
         </div>

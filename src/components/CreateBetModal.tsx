@@ -7,7 +7,10 @@ import {
   HelpCircle, 
   ShieldAlert, 
   Sparkles,
-  Coins
+  Coins,
+  Tv,
+  Radio,
+  ExternalLink
 } from 'lucide-react';
 import { Category, UserProfile } from '../types';
 import { sound } from '../utils/audio';
@@ -23,9 +26,12 @@ interface CreateBetModalProps {
     sideXName: string;
     sideYName: string;
     rules: string;
+    startDate?: string;
     endDate: string;
     seedAmount: number;
     bannerImage?: string;
+    streamUrl?: string;
+    streamPlatform?: string;
   }) => void;
 }
 
@@ -102,8 +108,50 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Category>('sports');
   const [rules, setRules] = useState('');
+  const [startHours, setStartHours] = useState<number>(8); // Event kickoff time relative to now
   const [deadlineHours, setDeadlineHours] = useState<number>(10);
+  const [streamPlatform, setStreamPlatform] = useState<string>('');
+  const [streamUrl, setStreamUrl] = useState<string>('');
   const [seedAmount, setSeedAmount] = useState<number>(50);
+  const [aiPrompt, setAiPrompt] = useState<string>('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+  const [aiSuccessMessage, setAiSuccessMessage] = useState<string | null>(null);
+
+  // AI Co-Pilot: Generate full duel from user keywords or concept prompt
+  const handleGenerateDuelWithAi = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!aiPrompt.trim()) return;
+
+    setIsGeneratingAi(true);
+    setAiSuccessMessage(null);
+    sound.playClick();
+
+    try {
+      const res = await fetch('/api/gemini/generate-duel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt.trim(), category }),
+      });
+      const data = await res.json();
+      if (data.success && data.duel) {
+        setSideXName(data.duel.sideXName || 'Competitor X');
+        setSideYName(data.duel.sideYName || 'Competitor Y');
+        setTitle(data.duel.title || `${data.duel.sideXName} vs ${data.duel.sideYName}`);
+        if (data.duel.category) setCategory(data.duel.category as Category);
+        if (data.duel.rules) setRules(data.duel.rules);
+        if (data.duel.startHoursFromNow !== undefined) setStartHours(data.duel.startHoursFromNow);
+        if (data.duel.deadlineHours) setDeadlineHours(data.duel.deadlineHours);
+        if (data.duel.broadcastPlatform) setStreamPlatform(data.duel.broadcastPlatform);
+        if (data.duel.streamUrl) setStreamUrl(data.duel.streamUrl);
+        setAiSuccessMessage(data.duel.rationale || 'Duel populated with verified real-world context & broadcast!');
+        sound.playWin();
+      }
+    } catch (err) {
+      console.error('AI generation error:', err);
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   // Update title automatically if user hasn't typed custom title
   const handleSideXChange = (val: string) => {
@@ -127,7 +175,15 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
     setTitle(preset.title);
     setCategory(preset.cat);
     setDeadlineHours(preset.hours);
+    setStartHours(Math.max(0, preset.hours - 2));
     setRules(preset.rules);
+    if (preset.cat === 'entertainment') {
+      setStreamPlatform('BBC iPlayer & BBC One');
+      setStreamUrl('https://www.bbc.co.uk/iplayer');
+    } else if (preset.cat === 'sports') {
+      setStreamPlatform('Sky Sports & Live TV');
+      setStreamUrl('https://www.skysports.com');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -136,7 +192,8 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
 
     sound.playBetPlaced();
 
-    const endDate = new Date(Date.now() + deadlineHours * 60 * 60 * 1000).toISOString();
+    const startDate = new Date(Date.now() + startHours * 60 * 60 * 1000).toISOString();
+    const endDate = new Date(Date.now() + Math.max(startHours + 1, deadlineHours) * 60 * 60 * 1000).toISOString();
 
     onCreateBet({
       title: title.trim(),
@@ -144,8 +201,11 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
       sideXName: sideXName.trim(),
       sideYName: sideYName.trim(),
       rules: rules.trim() || `The participant who wins the official contest takes the decision. Creator confirms result before ${new Date(endDate).toLocaleString()}.`,
+      startDate,
       endDate,
       seedAmount: Math.min(seedAmount, user.balance),
+      streamPlatform: streamPlatform.trim() || undefined,
+      streamUrl: streamUrl.trim() || undefined,
     });
 
     onClose();
@@ -180,6 +240,48 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-5 flex-1">
+          {/* AI Co-Pilot: Auto-Draft from Keywords */}
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-sky-950/60 to-slate-900 border border-sky-500/30 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI Co-Pilot: Draft Duel with Custom Keywords</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Google Gemini</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="e.g. Traitors Ep 4 turret murder, or UFC Pereira vs Ankalaev..."
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleGenerateDuelWithAi();
+                  }
+                }}
+                className="flex-1 h-9 px-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+              />
+              <button
+                type="button"
+                onClick={() => handleGenerateDuelWithAi()}
+                disabled={isGeneratingAi || !aiPrompt.trim()}
+                className="h-9 px-3.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                <span>{isGeneratingAi ? 'Drafting...' : 'Auto-Draft'}</span>
+              </button>
+            </div>
+
+            {aiSuccessMessage && (
+              <div className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
+                ✓ {aiSuccessMessage}
+              </div>
+            )}
+          </div>
+
           {/* Quick Idea Presets */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -274,6 +376,108 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
                   <span className="text-[10px] leading-tight truncate w-full">{cat.label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Event Kickoff & Start Time (Tune-in window) */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-sky-400" />
+                <span>Event Kickoff / Tune-In Time</span>
+              </label>
+              <span className="text-[11px] font-semibold text-sky-300">
+                {startHours === 0 
+                  ? '🔴 Starting Now / Live' 
+                  : startHours <= 12 
+                  ? `Tonight in ~${startHours}h (${new Date(Date.now() + startHours * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+                  : `Starts: ${new Date(Date.now() + startHours * 3600000).toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${new Date(Date.now() + startHours * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
+              {[
+                { hours: 0, label: '🔴 Live Now' },
+                { hours: 2, label: '⏱️ In 2h' },
+                { hours: 8, label: '🌙 Tonight' },
+                { hours: 24, label: '☀️ Tomorrow' },
+                { hours: 48, label: '📅 In 2 Days' },
+              ].map((opt) => (
+                <button
+                  key={opt.hours}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setStartHours(opt.hours);
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold border transition-all truncate text-center ${
+                    startHours === opt.hours
+                      ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Broadcast Platform & Tune-In Stream Link */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Tv className="w-3.5 h-3.5 text-rose-400" />
+                <span>Broadcaster & Tune-In Channel</span>
+              </label>
+              <span className="text-[10px] text-slate-500">
+                (Avoids falsely labeling as Twitch)
+              </span>
+            </div>
+
+            {/* Quick Broadcaster Presets */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
+              {[
+                { name: 'BBC iPlayer & BBC One', url: 'https://www.bbc.co.uk/iplayer', label: '🏰 BBC iPlayer' },
+                { name: 'Sky Sports & Peacock', url: 'https://www.skysports.com', label: '⚽ Sky Sports' },
+                { name: 'TNT Sports & ESPN+', url: 'https://www.tntsports.co.uk', label: '🥊 TNT Sports' },
+                { name: 'Twitch', url: 'https://twitch.tv', label: '🟣 Twitch' },
+                { name: 'YouTube Live', url: 'https://youtube.com', label: '▶️ YouTube' },
+                { name: 'TV Broadcast', url: 'https://www.google.com', label: '📺 Live TV' },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setStreamPlatform(preset.name);
+                    setStreamUrl(preset.url);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium whitespace-nowrap transition-colors shrink-0 ${
+                    streamPlatform === preset.name
+                      ? 'bg-rose-500/20 border-rose-400 text-rose-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <input
+                type="text"
+                placeholder="Platform name (e.g. BBC iPlayer, Sky Sports)"
+                value={streamPlatform}
+                onChange={(e) => setStreamPlatform(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+              <input
+                type="url"
+                placeholder="Broadcast / Stream URL (https://...)"
+                value={streamUrl}
+                onChange={(e) => setStreamUrl(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
             </div>
           </div>
 

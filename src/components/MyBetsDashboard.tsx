@@ -13,10 +13,12 @@ import {
   ArrowUpRight,
   ShieldCheck,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Tv,
+  ExternalLink
 } from 'lucide-react';
 import { Bet, UserProfile, Wager } from '../types';
-import { formatCoins, getTimeRemaining } from '../utils/odds';
+import { formatCoins, getTimeRemaining, getEventTiming, getBroadcastPlatformInfo } from '../utils/odds';
 import { sound } from '../utils/audio';
 
 interface MyBetsDashboardProps {
@@ -27,6 +29,7 @@ interface MyBetsDashboardProps {
   onOpenShare: (bet: Bet, side: 'X' | 'Y', amount: number) => void;
   onViewDetails: (bet: Bet) => void;
   onAiVerifyOutcome?: (bet: Bet) => Promise<void>;
+  onSettleAllExpired?: () => Promise<void>;
   isAiChecking?: boolean;
 }
 
@@ -38,15 +41,18 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
   onOpenShare,
   onViewDetails,
   onAiVerifyOutcome,
+  onSettleAllExpired,
   isAiChecking = false,
 }) => {
   const [subTab, setSubTab] = useState<'active' | 'history' | 'created'>('active');
 
-  // Extract all user wagers across all bets
+  // Extract all user wagers across all bets (matching both user.id and initial placeholder user_current)
+  const currentUserId = user.id;
   const allUserWagers: { wager: Wager; bet: Bet }[] = [];
   bets.forEach((b) => {
     b.wagers.forEach((w) => {
-      if (w.userId === user.id) {
+      const isMine = w.userId === currentUserId || (currentUserId === 'user_current' && w.userId === 'user_current');
+      if (isMine) {
         allUserWagers.push({ wager: w, bet: b });
       }
     });
@@ -54,7 +60,9 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
 
   const activeWagers = allUserWagers.filter((item) => item.bet.status === 'active');
   const pastWagers = allUserWagers.filter((item) => item.bet.status !== 'active');
-  const createdBets = bets.filter((b) => b.creator.isCurrentUser || b.creator.id === user.id);
+  const createdBets = bets.filter((b) => {
+    return b.creator.id === currentUserId || (currentUserId === 'user_current' && (b.creator.isCurrentUser || b.creator.id === 'user_current'));
+  });
   const awaitingSettlementCount = activeWagers.filter((item) => getTimeRemaining(item.bet.endDate).isExpired).length;
 
   // Stats calculation
@@ -182,7 +190,7 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
       {subTab === 'active' && (
         <div className="space-y-3">
           {awaitingSettlementCount > 0 && (
-            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-400 shrink-0" />
                 <div>
@@ -194,6 +202,19 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
                   </span>
                 </div>
               </div>
+              {onSettleAllExpired && (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onSettleAllExpired();
+                  }}
+                  disabled={isAiChecking}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition-all whitespace-nowrap self-start sm:self-auto disabled:opacity-50"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${isAiChecking ? 'animate-spin' : ''}`} />
+                  <span>{isAiChecking ? 'Settling...' : '⚡ Settle All Expired (Auto-Payout)'}</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -207,8 +228,13 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
             </div>
           ) : (
             activeWagers.map(({ wager, bet }) => {
-              const time = getTimeRemaining(bet.endDate);
-              const isPast = time.isExpired;
+              const timing = getEventTiming(bet.startDate, bet.endDate);
+              const streamInfo = getBroadcastPlatformInfo(
+                bet.streamUrl || bet.twitchUrl,
+                bet.streamPlatform,
+                bet.eventLeague || bet.title
+              );
+              const isPast = timing.isExpired;
               const hasAiVerified = !!(bet.lastAiCheck?.concluded && bet.lastAiCheck?.winner);
 
               return (
@@ -219,19 +245,32 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
                   }`}
                 >
                   <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="capitalize text-emerald-400 font-semibold">{bet.category}</span>
                       <span aria-hidden="true" className="text-slate-600">·</span>
-                      {isPast ? (
+                      
+                      {timing.isLive ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                          LIVE NOW (Started {timing.startCountdown})
+                        </span>
+                      ) : isPast ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> Deadline Passed · Ready for Payout
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <Clock className="w-3 h-3 text-slate-500" />
-                          {time.text}
+                        <span className="flex items-center gap-1 text-slate-300 bg-slate-800/80 px-2 py-0.5 rounded text-[10px] border border-slate-700/60">
+                          <Clock className="w-3 h-3 text-sky-400" />
+                          <span>Kickoff: <strong className="text-slate-200">{timing.startFormatted}</strong> ({timing.startCountdown})</span>
                         </span>
                       )}
+
+                      {streamInfo && (
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold shadow-sm ${streamInfo.badgeBg} ${streamInfo.badgeText}`}>
+                          {streamInfo.shortName}
+                        </span>
+                      )}
+
                       {hasAiVerified && (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                           Gemini Verified
@@ -267,6 +306,24 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {streamInfo && (
+                        <a
+                          href={streamInfo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sound.playClick();
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 ${streamInfo.badgeBg} ${streamInfo.badgeText}`}
+                          title={streamInfo.ctaText}
+                        >
+                          <Tv className="w-3.5 h-3.5 animate-pulse" />
+                          <span>{streamInfo.shortName}</span>
+                          <ExternalLink className="w-3 h-3 opacity-80" />
+                        </a>
+                      )}
+
                       {isPast && onAiVerifyOutcome && !hasAiVerified && (
                         <button
                           onClick={() => {

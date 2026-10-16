@@ -21,7 +21,7 @@ import {
   Search
 } from 'lucide-react';
 import { Bet, UserProfile } from '../types';
-import { calculateOdds, formatCoins, getTimeRemaining } from '../utils/odds';
+import { calculateOdds, formatCoins, getTimeRemaining, getEventTiming, getBroadcastPlatformInfo } from '../utils/odds';
 import { sound } from '../utils/audio';
 
 interface BetDetailModalProps {
@@ -53,6 +53,12 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
 
   const { oddsX, oddsY, percentX, percentY } = calculateOdds(bet.sideX.pool, bet.sideY.pool);
   const timeInfo = getTimeRemaining(bet.endDate);
+  const timing = getEventTiming(bet.startDate, bet.endDate);
+  const streamInfo = getBroadcastPlatformInfo(
+    bet.streamUrl || bet.twitchUrl,
+    bet.streamPlatform,
+    bet.eventLeague || bet.title
+  );
   const isCreator = bet.creator.isCurrentUser || bet.creator.id === user.id;
   const isResolved = bet.status === 'resolved';
   const isRefunded = bet.status === 'cancelled_refunded';
@@ -85,30 +91,17 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
 
           {/* Close & Share Buttons Top Right */}
           <div className="absolute top-3 right-3 flex items-center gap-2">
-            {bet.twitchUrl && (
+            {streamInfo && (
               <a
-                href={bet.twitchUrl}
+                href={streamInfo.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => {
-                  sound.playClick();
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs shadow-md transition-all active:scale-95 ${
-                  bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
-                    ? 'bg-red-600 hover:bg-red-500'
-                    : bet.twitchUrl.toLowerCase().includes('twitch')
-                    ? 'bg-[#9146FF] hover:bg-[#772CE8]'
-                    : 'bg-sky-600 hover:bg-sky-500'
-                }`}
+                onClick={() => sound.playClick()}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 ${streamInfo.badgeBg} ${streamInfo.badgeText}`}
+                title={streamInfo.ctaText}
               >
                 <Tv className="w-3.5 h-3.5 animate-pulse" />
-                <span>
-                  {bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
-                    ? 'Watch on BBC iPlayer'
-                    : bet.twitchUrl.toLowerCase().includes('twitch')
-                    ? 'Watch on Twitch'
-                    : 'Watch Broadcast'}
-                </span>
+                <span>{streamInfo.ctaText}</span>
                 <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
               </a>
             )}
@@ -145,12 +138,29 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
               )}
               <span className="capitalize text-emerald-400">{bet.category}</span>
               <span aria-hidden="true">·</span>
-              <span className="flex items-center gap-1 text-slate-300">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                {timeInfo.text}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>Deadline: {new Date(bet.endDate).toLocaleDateString()}</span>
+              
+              {timing.isLive ? (
+                <span className="flex items-center gap-1 font-bold text-rose-400 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping mr-0.5" />
+                  LIVE NOW (Started {timing.startCountdown})
+                </span>
+              ) : timing.isExpired ? (
+                <span className="text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                  Concluded · Ready to Settle
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-slate-200 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700">
+                  <Clock className="w-3.5 h-3.5 text-sky-400" />
+                  <strong className="text-sky-300">Kickoff:</strong> {timing.startFormatted} ({timing.startCountdown})
+                </span>
+              )}
+
+              {bet.eventLeague && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-slate-300">{bet.eventLeague}</span>
+                </>
+              )}
             </div>
             <h2 className="text-lg sm:text-xl font-extrabold text-white leading-tight">
               {bet.title}
@@ -192,29 +202,89 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
             </div>
           )}
 
-          {/* Twitch Live Stream Callout if applicable */}
-          {bet.twitchUrl && (
-            <div className="p-4 rounded-xl bg-[#9146FF]/10 border border-[#9146FF]/30 flex items-center justify-between gap-3">
+          {/* Event Schedule & Kickoff Timing Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0 mt-0.5">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="text-xs flex-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  Event Kickoff / Start Time
+                </span>
+                <span className="font-bold text-slate-200 text-sm block mt-0.5">
+                  {timing.startFormatted}
+                </span>
+                <span className={`text-[11px] font-semibold mt-1 inline-flex items-center gap-1 ${
+                  timing.isLive ? 'text-rose-400' : timing.isExpired ? 'text-slate-400' : 'text-sky-300'
+                }`}>
+                  {timing.isLive ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                      Started {timing.startCountdown} (LIVE NOW)
+                    </>
+                  ) : timing.isExpired ? (
+                    'Kickoff Concluded'
+                  ) : (
+                    `⏱️ ${timing.startCountdown}`
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div className="text-xs flex-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  Resolution / Result Deadline
+                </span>
+                <span className="font-bold text-slate-200 text-sm block mt-0.5">
+                  {new Date(bet.endDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(bet.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className={`text-[11px] font-semibold mt-1 block ${
+                  timing.isExpired ? 'text-amber-400' : 'text-emerald-400'
+                }`}>
+                  {timing.isExpired ? '⚠️ Deadline Passed · Ready to Settle' : `⏳ ${timing.endCountdown}`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Authentic Broadcast & Tune-In Card (Replaces generic Twitch hardcode) */}
+          {streamInfo && (
+            <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md bg-slate-950/80 ${streamInfo.badgeBorder}`}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#9146FF] flex items-center justify-center text-white shrink-0 shadow-md">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md ${streamInfo.badgeBg}`}>
                   <Tv className="w-5 h-5 animate-pulse" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">Broadcast Stream Available on Twitch</h4>
-                  <p className="text-[11px] text-slate-300">
-                    Watch the live head-to-head competition stream while your prediction is in play.
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Official Live Coverage
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${streamInfo.badgeBg} ${streamInfo.badgeText}`}>
+                      {streamInfo.name}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-white mt-0.5">
+                    {timing.isLive ? '🔴 Stream is LIVE NOW — Tune In to Watch!' : `Tune in on ${streamInfo.shortName} when the event kicks off`}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Stream official broadcast to follow action and results in real time.
                   </p>
                 </div>
               </div>
 
               <a
-                href={bet.twitchUrl}
+                href={streamInfo.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => sound.playClick()}
-                className="px-3.5 py-2 rounded-lg bg-[#9146FF] hover:bg-[#772CE8] text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors"
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shrink-0 transition-transform active:scale-95 shadow-md ${streamInfo.badgeBg} ${streamInfo.badgeText}`}
               >
-                <span>Tune In</span>
+                <span>{streamInfo.ctaText}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>

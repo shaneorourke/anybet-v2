@@ -14,7 +14,7 @@ import {
   Bot
 } from 'lucide-react';
 import { Bet } from '../types';
-import { calculateOdds, formatCoins, getTimeRemaining } from '../utils/odds';
+import { calculateOdds, formatCoins, getTimeRemaining, getEventTiming, getBroadcastPlatformInfo } from '../utils/odds';
 import { sound } from '../utils/audio';
 
 interface BetCardProps {
@@ -38,11 +38,17 @@ export const BetCard: React.FC<BetCardProps> = ({
 }) => {
   const { oddsX, oddsY, percentX, percentY } = calculateOdds(bet.sideX.pool, bet.sideY.pool);
   const timeInfo = getTimeRemaining(bet.endDate);
+  const timing = getEventTiming(bet.startDate, bet.endDate);
+  const streamInfo = getBroadcastPlatformInfo(
+    bet.streamUrl || bet.twitchUrl,
+    bet.streamPlatform,
+    bet.eventLeague || bet.title
+  );
   const totalBettors = (bet.sideX.bettorsCount || 0) + (bet.sideY.bettorsCount || 0);
 
   const isResolved = bet.status === 'resolved';
   const isRefunded = bet.status === 'cancelled_refunded';
-  const isExpired = timeInfo.isExpired;
+  const isExpired = timing.isExpired;
   const isActive = bet.status === 'active';
   const canBet = isActive && !isExpired;
 
@@ -62,48 +68,41 @@ export const BetCard: React.FC<BetCardProps> = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent" />
           
-          {/* Top Unboxed Metadata Overlay */}
+          {/* Top Metadata Overlay */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs text-slate-300 font-medium drop-shadow-md">
             <div className="flex items-center gap-2">
               <span className="capitalize font-semibold text-emerald-400">{bet.category}</span>
               <span aria-hidden="true" className="text-slate-400">·</span>
-              <span className="flex items-center gap-1 text-slate-300">
-                <Clock className="w-3 h-3 text-slate-400" />
-                {timeInfo.text}
-              </span>
+              {timing.isLive ? (
+                <span className="flex items-center gap-1 font-bold text-rose-400 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30 text-[10px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping mr-0.5" />
+                  LIVE NOW
+                </span>
+              ) : timing.isExpired ? (
+                <span className="text-amber-400 font-semibold text-[10px]">Concluded</span>
+              ) : (
+                <span className="flex items-center gap-1 text-slate-300 text-[10px]">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  {timing.startCountdown || timeInfo.text}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5">
-              {bet.twitchUrl && (
+              {streamInfo && (
                 <a
-                  href={bet.twitchUrl}
+                  href={streamInfo.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => {
                     e.stopPropagation();
                     sound.playClick();
                   }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-white font-bold text-[10px] shadow-sm transition-transform active:scale-95 ${
-                    bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
-                      ? 'bg-red-600/90 hover:bg-red-600'
-                      : bet.twitchUrl.toLowerCase().includes('twitch')
-                      ? 'bg-[#9146FF]/90 hover:bg-[#9146FF]'
-                      : 'bg-sky-600/90 hover:bg-sky-600'
-                  }`}
-                  title={
-                    bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
-                      ? 'Watch on BBC iPlayer'
-                      : 'Watch Broadcast'
-                  }
+                  className={`flex items-center gap-1 px-2.5 py-0.5 rounded-lg font-bold text-[10px] shadow-sm transition-transform active:scale-95 ${streamInfo.badgeBg} ${streamInfo.badgeText}`}
+                  title={streamInfo.ctaText}
                 >
                   <Tv className="w-3 h-3 animate-pulse" />
-                  <span>
-                    {bet.twitchUrl.toLowerCase().includes('bbc') || bet.twitchUrl.toLowerCase().includes('iplayer')
-                      ? 'BBC iPlayer'
-                      : bet.twitchUrl.toLowerCase().includes('twitch')
-                      ? 'Twitch'
-                      : 'Watch Live'}
-                  </span>
+                  <span>{streamInfo.shortName}</span>
                 </a>
               )}
 
@@ -126,27 +125,36 @@ export const BetCard: React.FC<BetCardProps> = ({
           <div className="flex items-center gap-2">
             <span className="capitalize font-semibold text-emerald-400">{bet.category}</span>
             <span aria-hidden="true" className="text-slate-600">·</span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-slate-500" />
-              {timeInfo.text}
-            </span>
+            {timing.isLive ? (
+              <span className="flex items-center gap-1 font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20 text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping mr-0.5" />
+                LIVE NOW
+              </span>
+            ) : timing.isExpired ? (
+              <span className="text-amber-400 font-semibold text-[10px]">Concluded</span>
+            ) : (
+              <span className="flex items-center gap-1 text-[10px]">
+                <Clock className="w-3 h-3 text-slate-500" />
+                {timing.startCountdown || timeInfo.text}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
-            {bet.twitchUrl && (
+            {streamInfo && (
               <a
-                href={bet.twitchUrl}
+                href={streamInfo.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => {
                   e.stopPropagation();
                   sound.playClick();
                 }}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#9146FF] text-white font-bold text-[10px] shadow-sm"
-                title="Watch Live on Twitch"
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold text-[10px] shadow-sm ${streamInfo.badgeBg} ${streamInfo.badgeText}`}
+                title={streamInfo.ctaText}
               >
                 <Tv className="w-3 h-3 animate-pulse" />
-                <span>Twitch</span>
+                <span>{streamInfo.shortName}</span>
               </a>
             )}
 
@@ -181,6 +189,32 @@ export const BetCard: React.FC<BetCardProps> = ({
           >
             {bet.title}
           </h3>
+
+          {/* Event Kickoff & Tune-In Schedule Indicator */}
+          <div className="mt-2 py-1 px-2.5 rounded-lg bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px] gap-2">
+            <div className="flex items-center gap-1.5 truncate">
+              <Clock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="truncate">
+                {timing.isLive ? (
+                  <span className="text-rose-400 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
+                    LIVE NOW · Tune In!
+                  </span>
+                ) : timing.isExpired ? (
+                  <span className="text-slate-400">Aired / Concluded</span>
+                ) : (
+                  <span>
+                    Starts: <strong className="text-slate-200">{timing.startFormatted}</strong> ({timing.startCountdown})
+                  </span>
+                )}
+              </span>
+            </div>
+            {streamInfo && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 shadow-sm ${streamInfo.badgeBg} ${streamInfo.badgeText}`}>
+                {streamInfo.shortName}
+              </span>
+            )}
+          </div>
 
           {/* Status Alert if Resolved, Refunded, or Awaiting Settlement */}
           {isResolved && (

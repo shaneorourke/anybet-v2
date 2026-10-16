@@ -23,6 +23,7 @@ interface ProfileModalProps {
   onClose: () => void;
   onUpdateUser: (updated: Partial<UserProfile>) => void;
   onClaimDailyBonus: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 const AVATAR_OPTIONS = [
@@ -40,6 +41,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onClose,
   onUpdateUser,
   onClaimDailyBonus,
+  onOpenAuthModal,
 }) => {
   if (!isOpen) return null;
 
@@ -305,6 +307,30 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Account & Multi-User Switcher */}
+          {onOpenAuthModal && (
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-white block">Multi-User Account Switcher</span>
+                <span className="text-[11px] text-slate-400">
+                  Logged in as <strong className="text-emerald-400">{user.name}</strong> (@{user.username}). Switch profile or register another player.
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  onClose();
+                  onOpenAuthModal();
+                }}
+                className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold whitespace-nowrap transition-colors"
+              >
+                👥 Switch / Create Account
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

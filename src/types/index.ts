@@ -41,13 +41,16 @@ export interface Bet {
     isCurrentUser?: boolean;
   };
   createdAt: string;
-  endDate: string;
+  startDate?: string; // Event kickoff / broadcast start time
+  endDate: string; // Event conclusion / resolution deadline
   status: 'active' | 'resolving' | 'resolved' | 'cancelled_refunded';
   outcome?: 'X' | 'Y' | 'refunded';
   resolutionNotes?: string;
   resolvedAt?: string;
   bannerImage?: string;
-  twitchUrl?: string;
+  streamUrl?: string; // Official broadcast or stream URL
+  streamPlatform?: string; // e.g. 'BBC iPlayer', 'Twitch', 'YouTube', 'Sky Sports', 'Peacock'
+  twitchUrl?: string; // Legacy alias for streamUrl
   isRealWorld?: boolean;
   eventLeague?: string;
   lastAiCheck?: {

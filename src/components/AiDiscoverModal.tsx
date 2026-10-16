@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Bet } from '../types';
 import { sound } from '../utils/audio';
+import { getBroadcastPlatformInfo, getEventTiming } from '../utils/odds';
 
 interface AiDiscoverModalProps {
   isOpen: boolean;
@@ -30,19 +31,28 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [discovered, setDiscovered] = useState<any[]>([]);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
-  const [selectedFocus, setSelectedFocus] = useState<string>('all');
+  const [selectedFocus, setSelectedFocus] = useState<string>('traitors');
+  const [searchKeywords, setSearchKeywords] = useState<string>('');
+  const [accuracyMode, setAccuracyMode] = useState<'grounded' | 'creative'>('grounded');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMatches = async (focus = 'all') => {
+  const fetchMatches = async (focusParam?: string, customKeyword?: string) => {
     setLoading(true);
     setError(null);
     sound.playClick();
+
+    const currentFocus = focusParam !== undefined ? focusParam : selectedFocus;
+    const currentKeywords = customKeyword !== undefined ? customKeyword : searchKeywords;
 
     try {
       const res = await fetch('/api/gemini/discover-matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ focus }),
+        body: JSON.stringify({ 
+          focus: currentFocus,
+          keywords: currentKeywords.trim(),
+          mode: accuracyMode
+        }),
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.matches)) {
@@ -64,10 +74,16 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
     setAddedIds((prev) => ({ ...prev, [idx]: true }));
   };
 
+  const handleQuickKeyword = (kw: string, focusVal: string) => {
+    setSearchKeywords(kw);
+    setSelectedFocus(focusVal);
+    fetchMatches(focusVal, kw);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
       <div 
-        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
+        className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -78,7 +94,7 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] uppercase tracking-wider font-bold text-sky-400 block">
-                Powered by Google Gemini & Search
+                Powered by Google Gemini Live Search Oracle
               </span>
               <h2 className="text-base sm:text-lg font-bold text-white">
                 Discover Live Real-World Showdowns
@@ -97,8 +113,8 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
-          {/* Spotlight Traitors Card */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+          {/* Spotlight Traitors Banner */}
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-950 border border-emerald-500/30 p-4 shadow-lg">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="space-y-1 max-w-md">
@@ -114,17 +130,14 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
                   Celebrity Traitors UK 2026: Live Episode Wagers & Oracle Settlement
                 </h3>
                 <p className="text-xs text-slate-300 leading-snug">
-                  Episode 3 aired Thursday (Richard E. Grant unmasked & banished!). Episode 4 airs tonight Friday at 21:00 BST. Add duels and settle live results instantly with the Gemini Search Oracle!
+                  Ep 3: Richard E. Grant banished! Ep 4: Turret murder & Round Table tonight. Search or generate duels with instant live oracle verification.
                 </p>
               </div>
 
               <button
-                onClick={() => {
-                  setSelectedFocus('traitors');
-                  fetchMatches('traitors');
-                }}
+                onClick={() => handleQuickKeyword('Celebrity Traitors UK 2026 Episode 4', 'traitors')}
                 disabled={loading}
-                className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all active:scale-95 whitespace-nowrap"
+                className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all active:scale-95 whitespace-nowrap self-start sm:self-auto"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Scan 2026 Traitors Bets</span>
@@ -132,45 +145,121 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
             </div>
           </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Gemini searches live TV schedules, sporting leagues, CS2 tournaments, and fighting championships to auto-generate authentic head-to-head prediction duels with official stream and broadcast links.
-          </p>
-
-          {/* Generator Controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-              {[
-                { id: 'traitors', label: '🏰 Traitors 2026' },
-                { id: 'tv', label: '📺 TV & Pop Culture' },
-                { id: 'all', label: '🔥 All Marquee' },
-                { id: 'football', label: '⚽ Champions League' },
-                { id: 'cs2', label: '🔫 CS2 Esports' },
-                { id: 'fighting', label: '🥊 Street Fighter' },
-              ].map((tab) => (
+          {/* USER KEYWORD SEARCH INPUT BAR (Makes Gemini Suggestions Hyper-Relevant) */}
+          <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Guide Gemini with Custom Keywords or Specific Matchups</span>
+              </label>
+              <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
                 <button
-                  key={tab.id}
-                  onClick={() => {
-                    setSelectedFocus(tab.id);
-                  }}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
-                    selectedFocus === tab.id
-                      ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
-                      : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  type="button"
+                  onClick={() => setAccuracyMode('grounded')}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                    accuracyMode === 'grounded' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-white'
                   }`}
+                  title="Strict Grounded Real-World Accuracy"
                 >
-                  {tab.label}
+                  🎯 Grounded
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccuracyMode('creative')}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                    accuracyMode === 'creative' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Creative Prop Bets"
+                >
+                  🌶️ Spicy Props
+                </button>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                fetchMatches();
+              }}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="e.g. Celebrity Traitors, Arsenal vs Chelsea, UFC 305, CS2 BLAST..."
+                  value={searchKeywords}
+                  onChange={(e) => setSearchKeywords(e.target.value)}
+                  className="w-full h-10 pl-3.5 pr-8 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                />
+                {searchKeywords && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchKeywords('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="h-10 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>{loading ? 'Searching...' : 'Scan Gemini'}</span>
+              </button>
+            </form>
+
+            {/* Quick Keyword Suggestion Tags */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-[11px]">
+              <span className="text-slate-500 text-[10px] font-semibold shrink-0">Popular:</span>
+              {[
+                { label: '🏰 Traitors 2026', kw: 'Celebrity Traitors UK 2026 Round Table & Turret', focus: 'traitors' },
+                { label: '⚽ Champions League', kw: 'Champions League Arsenal Real Madrid Bayern', focus: 'football' },
+                { label: '🥊 UFC / MMA', kw: 'UFC Championship Main Event Title Fight', focus: 'sports' },
+                { label: '🔫 CS2 BLAST', kw: 'CS2 BLAST Premier FaZe NaVi G2 Esports', focus: 'cs2' },
+                { label: '📺 Great British Bake Off', kw: 'Great British Bake Off Star Baker Showdown', focus: 'tv' },
+                { label: '🏎️ Formula 1', kw: 'Formula 1 Grand Prix Podium Clash', focus: 'sports' },
+              ].map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => handleQuickKeyword(chip.kw, chip.focus)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800/80 hover:border-sky-500/40 text-slate-300 hover:text-sky-300 whitespace-nowrap transition-colors shrink-0"
+                >
+                  {chip.label}
                 </button>
               ))}
             </div>
+          </div>
 
-            <button
-              onClick={() => fetchMatches(selectedFocus)}
-              disabled={loading}
-              className="py-2 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-sky-500/20 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? 'Searching...' : 'Scan & Generate'}</span>
-            </button>
+          {/* Category Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {[
+              { id: 'traitors', label: '🏰 Traitors 2026' },
+              { id: 'football', label: '⚽ Football' },
+              { id: 'cs2', label: '🔫 CS2 Esports' },
+              { id: 'fighting', label: '🥊 Fighting / Boxing' },
+              { id: 'tv', label: '📺 TV & Pop Culture' },
+              { id: 'all', label: '🔥 All Marquee' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setSelectedFocus(tab.id);
+                  fetchMatches(tab.id);
+                }}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                  selectedFocus === tab.id
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                    : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {error && (
@@ -196,8 +285,12 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
 
               {discovered.map((item, idx) => {
                 const isAdded = !!addedIds[idx];
-                const isBBC = item.twitchUrl?.toLowerCase().includes('bbc') || item.twitchUrl?.toLowerCase().includes('iplayer') || item.eventLeague?.toLowerCase().includes('bbc');
-                const isTwitch = item.twitchUrl?.toLowerCase().includes('twitch');
+                const stream = getBroadcastPlatformInfo(
+                  item.streamUrl || item.twitchUrl,
+                  item.broadcastPlatform || item.streamPlatform,
+                  item.eventLeague || item.title
+                );
+                const timing = getEventTiming(item.scheduledStart, item.scheduledEnd);
 
                 return (
                   <div
@@ -206,34 +299,31 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold mb-1">
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 font-semibold mb-1">
                           <span className="uppercase text-sky-400 font-bold">{item.eventLeague || item.category}</span>
                           <span aria-hidden="true">·</span>
-                          <span className={item.isConcluded || item.hoursUntil === 0 ? "text-emerald-400 font-bold" : item.daysUntil === 0 ? "text-amber-400 font-bold" : ""}>
-                            {item.isConcluded || item.hoursUntil === 0 
-                              ? '🏆 Aired (Ep 3) · Ready to Verify' 
-                              : item.hoursUntil 
-                              ? `🔥 Tonight (~${item.hoursUntil}h)` 
-                              : item.daysUntil === 0 
-                              ? '🔥 On Tonight!' 
-                              : `In ${item.daysUntil} days`}
-                          </span>
-                          {item.twitchUrl && (
+                          
+                          {timing.isLive ? (
+                            <span className="text-rose-400 font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                              LIVE NOW
+                            </span>
+                          ) : item.isConcluded || item.hoursUntil === 0 ? (
+                            <span className="text-emerald-400 font-bold">
+                              🏆 Aired · Ready to Verify
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">
+                              Starts: <strong className="text-slate-100">{timing.startFormatted}</strong> ({timing.startCountdown})
+                            </span>
+                          )}
+
+                          {stream && (
                             <>
                               <span aria-hidden="true">·</span>
-                              {isBBC ? (
-                                <span className="flex items-center gap-1 text-red-400 font-bold">
-                                  <Tv className="w-3 h-3" /> BBC iPlayer
-                                </span>
-                              ) : isTwitch ? (
-                                <span className="flex items-center gap-1 text-[#9146FF] font-bold">
-                                  <Tv className="w-3 h-3" /> Twitch
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1 text-sky-400 font-bold">
-                                  <Tv className="w-3 h-3" /> Broadcast
-                                </span>
-                              )}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${stream.badgeBg} ${stream.badgeText}`}>
+                                <Tv className="w-3 h-3" /> {stream.shortName}
+                              </span>
                             </>
                           )}
                         </div>
@@ -282,6 +372,13 @@ export const AiDiscoverModal: React.FC<AiDiscoverModalProps> = ({
                     <p className="text-[11px] text-slate-400 leading-snug">
                       <strong>Rules:</strong> {item.rules}
                     </p>
+
+                    {item.accuracyRationale && (
+                      <div className="p-2 rounded-lg bg-sky-950/40 border border-sky-500/20 text-[11px] text-sky-300 flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+                        <span><strong>Gemini Live Grounding:</strong> {item.accuracyRationale}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

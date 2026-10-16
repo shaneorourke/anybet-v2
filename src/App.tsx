@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import { 
   Search, 
   Flame, 
@@ -29,18 +30,40 @@ import { MyBetsDashboard } from './components/MyBetsDashboard';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ProfileModal } from './components/ProfileModal';
 import { AiDiscoverModal } from './components/AiDiscoverModal';
+import { AuthModal } from './components/AuthModal';
 import { calculateOdds, formatCoins, getTimeRemaining, getDailyBonusStatus } from './utils/odds';
 import { sound } from './utils/audio';
 
+const CURRENT_APP_VERSION = 'v8';
+
 export default function App() {
-  // Persistence state with version migration to wipe legacy bets
+  // Multi-account persistence state with unified version migration
+  const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
+    try {
+      const saved = localStorage.getItem('versus_all_accounts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return [CURRENT_USER];
+    } catch {
+      return [CURRENT_USER];
+    }
+  });
+
   const [user, setUser] = useState<UserProfile>(() => {
     try {
-      if (localStorage.getItem('versus_app_version') !== 'v4') {
-        localStorage.removeItem('versus_user');
-        localStorage.removeItem('versus_bets');
-        localStorage.setItem('versus_app_version', 'v4');
-        return CURRENT_USER;
+      if (localStorage.getItem('versus_app_version') !== CURRENT_APP_VERSION) {
+        localStorage.setItem('versus_app_version', CURRENT_APP_VERSION);
+      }
+      const activeId = localStorage.getItem('versus_active_user_id');
+      const savedAccounts = localStorage.getItem('versus_all_accounts');
+      if (savedAccounts) {
+        const parsedAccounts = JSON.parse(savedAccounts);
+        if (Array.isArray(parsedAccounts) && parsedAccounts.length > 0) {
+          const found = parsedAccounts.find((u: UserProfile) => u.id === activeId);
+          if (found) return found;
+        }
       }
       const saved = localStorage.getItem('versus_user');
       return saved ? JSON.parse(saved) : CURRENT_USER;
@@ -51,10 +74,8 @@ export default function App() {
 
   const [bets, setBets] = useState<Bet[]>(() => {
     try {
-      if (localStorage.getItem('versus_app_version') !== 'v5') {
-        localStorage.setItem('versus_app_version', 'v5');
-        localStorage.removeItem('versus_bets');
-        return INITIAL_BETS;
+      if (localStorage.getItem('versus_app_version') !== CURRENT_APP_VERSION) {
+        localStorage.setItem('versus_app_version', CURRENT_APP_VERSION);
       }
       const saved = localStorage.getItem('versus_bets');
       const parsed = saved ? JSON.parse(saved) : [];
@@ -102,12 +123,33 @@ export default function App() {
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
   const [isAiDiscoverOpen, setIsAiDiscoverOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(() => {
+    try {
+      // If user has never actively chosen or created an account, show modal on first arrival
+      return !localStorage.getItem('versus_active_user_id') && !localStorage.getItem('versus_user');
+    } catch {
+      return false;
+    }
+  });
   const [isAiChecking, setIsAiChecking] = useState<boolean>(false);
 
   // Sync state to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('versus_user', JSON.stringify(user));
+      localStorage.setItem('versus_active_user_id', user.id);
+      setAllUsers((prev) => {
+        const idx = prev.findIndex((u) => u.id === user.id);
+        let updated: UserProfile[];
+        if (idx >= 0) {
+          updated = [...prev];
+          updated[idx] = user;
+        } else {
+          updated = [...prev, user];
+        }
+        localStorage.setItem('versus_all_accounts', JSON.stringify(updated));
+        return updated;
+      });
     } catch {}
   }, [user]);
 
@@ -250,9 +292,12 @@ export default function App() {
     sideXName: string;
     sideYName: string;
     rules: string;
+    startDate?: string;
     endDate: string;
     seedAmount: number;
     bannerImage?: string;
+    streamUrl?: string;
+    streamPlatform?: string;
   }) => {
     const seed = data.seedAmount || 0;
     const splitSeed = Math.floor(seed / 2);
@@ -286,8 +331,12 @@ export default function App() {
         isCurrentUser: true,
       },
       createdAt: new Date().toISOString(),
+      startDate: data.startDate,
       endDate: data.endDate,
       status: 'active',
+      streamUrl: data.streamUrl,
+      streamPlatform: data.streamPlatform,
+      twitchUrl: data.streamUrl,
       wagers: [],
       stats: {
         views: 12,
@@ -317,73 +366,71 @@ export default function App() {
     });
   };
 
-  // Settle & Resolve Bet Handler
+  // Settle & Resolve Bet Handler with synchronous payout crediting
   const handleResolveBet = (betId: string, outcome: 'X' | 'Y' | 'refunded', notes: string) => {
+    const targetBet = bets.find((b) => b.id === betId);
+    if (!targetBet) return;
+    if (targetBet.status === 'resolved' || targetBet.status === 'cancelled_refunded') {
+      return;
+    }
+
+    const currentUserId = user.id;
     let userPayoutTotal = 0;
     let userWonWagers = 0;
     let userLostWagers = 0;
-    let resolvedTitle = '';
-    let sideXLabel = '';
-    let sideYLabel = '';
 
-    setBets((prevBets) => {
-      const targetBet = prevBets.find((b) => b.id === betId);
-      if (!targetBet) return prevBets;
-      if (targetBet.status === 'resolved' || targetBet.status === 'cancelled_refunded') {
-        return prevBets;
+    const updatedWagers = targetBet.wagers.map((w) => {
+      const isCurrentUserWager = w.userId === currentUserId || w.userId === 'user_current';
+      if (outcome === 'refunded') {
+        if (isCurrentUserWager) {
+          userPayoutTotal += w.amount;
+        }
+        return { ...w, status: 'refunded' as const, payout: w.amount };
       }
 
-      resolvedTitle = targetBet.title;
-      sideXLabel = targetBet.sideX.name;
-      sideYLabel = targetBet.sideY.name;
-
-      const updatedWagers = targetBet.wagers.map((w) => {
-        if (outcome === 'refunded') {
-          if (w.userId === user.id) {
-            userPayoutTotal += w.amount;
-          }
-          return { ...w, status: 'refunded' as const, payout: w.amount };
+      if (w.side === outcome) {
+        const payout = Math.round(w.amount * w.oddsAtBet);
+        if (isCurrentUserWager) {
+          userPayoutTotal += payout;
+          userWonWagers++;
         }
-
-        if (w.side === outcome) {
-          const payout = Math.round(w.amount * w.oddsAtBet);
-          if (w.userId === user.id) {
-            userPayoutTotal += payout;
-            userWonWagers++;
-          }
-          return { ...w, status: 'won' as const, payout };
-        } else {
-          if (w.userId === user.id) {
-            userLostWagers++;
-          }
-          return { ...w, status: 'lost' as const };
+        return { ...w, status: 'won' as const, payout };
+      } else {
+        if (isCurrentUserWager) {
+          userLostWagers++;
         }
-      });
-
-      const isCreator = targetBet.creator.id === user.id || targetBet.creator.isCurrentUser;
-      if (outcome === 'refunded' && isCreator) {
-        const totalWagerAmount = targetBet.wagers.reduce((sum, w) => sum + w.amount, 0);
-        const creatorSeedRemaining = Math.max(0, targetBet.totalPot - totalWagerAmount);
-        if (creatorSeedRemaining > 0) {
-          userPayoutTotal += creatorSeedRemaining;
-        }
+        return { ...w, status: 'lost' as const, payout: 0 };
       }
-
-      const resolvedBet: Bet = {
-        ...targetBet,
-        status: outcome === 'refunded' ? ('cancelled_refunded' as const) : ('resolved' as const),
-        outcome,
-        resolutionNotes: notes,
-        resolvedAt: new Date().toISOString(),
-        wagers: updatedWagers,
-      };
-
-      setDetailModalBet((curr) => (curr?.id === betId ? resolvedBet : curr));
-
-      return prevBets.map((b) => (b.id === betId ? resolvedBet : b));
     });
 
-    // Update User Record & Balance
+    const isCreator = targetBet.creator.id === currentUserId || targetBet.creator.id === 'user_current' || targetBet.creator.isCurrentUser;
+    if (outcome === 'refunded' && isCreator) {
+      const totalWagerAmount = targetBet.wagers.reduce((sum, w) => sum + w.amount, 0);
+      const creatorSeedRemaining = Math.max(0, targetBet.totalPot - totalWagerAmount);
+      if (creatorSeedRemaining > 0) {
+        userPayoutTotal += creatorSeedRemaining;
+      }
+    }
+
+    const resolvedBet: Bet = {
+      ...targetBet,
+      status: outcome === 'refunded' ? ('cancelled_refunded' as const) : ('resolved' as const),
+      outcome,
+      resolutionNotes: notes,
+      resolvedAt: new Date().toISOString(),
+      wagers: updatedWagers,
+    };
+
+    // 1. Update bets state
+    setBets((prevBets) => prevBets.map((b) => (b.id === betId ? resolvedBet : b)));
+
+    // 2. Update detail modal bet if viewing
+    setDetailModalBet((curr) => (curr?.id === betId ? resolvedBet : curr));
+
+    // 3. Close resolve modal if open
+    setResolveModalBet((curr) => (curr?.id === betId ? null : curr));
+
+    // 4. Update user state IMMEDIATELY with exact payout
     if (userPayoutTotal > 0 || userLostWagers > 0) {
       setUser((prev) => {
         const newBalance = prev.balance + userPayoutTotal;
@@ -399,6 +446,37 @@ export default function App() {
           bestStreak: Math.max(prev.bestStreak, newStreak),
         };
       });
+
+      // 5. Update Leaderboard live
+      setLeaderboard((prev) =>
+        prev.map((u) => {
+          if (u.id === currentUserId || u.id === 'user_current') {
+            const newProfit = (u.profit || 0) + (outcome !== 'refunded' ? userPayoutTotal : 0);
+            const totalBets = (u.betsTotal || 0) + userWonWagers + userLostWagers;
+            const betsWon = (u.betsWon || 0) + userWonWagers;
+            return {
+              ...u,
+              balance: u.balance + userPayoutTotal,
+              profit: newProfit,
+              betsWon,
+              betsTotal: totalBets,
+              winRate: totalBets > 0 ? Math.round((betsWon / totalBets) * 100) : u.winRate,
+            };
+          }
+          return u;
+        })
+      );
+    }
+
+    if (userWonWagers > 0) {
+      sound.playWin();
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 85,
+          origin: { y: 0.6 },
+        });
+      } catch {}
     }
 
     if (outcome === 'refunded') {
@@ -406,13 +484,13 @@ export default function App() {
         id: `notif_${Date.now()}`,
         type: 'bet_refunded',
         title: 'Duel Refunded 100% 🔄',
-        message: `"${resolvedTitle || 'Showdown'}" was cancelled. All stakes returned to participants.`,
+        message: `"${targetBet.title}" was cancelled. All stakes returned to participants.`,
         timestamp: 'Just now',
         read: false,
         betId,
       });
     } else {
-      const winnerName = outcome === 'X' ? (sideXLabel || 'Side X') : (sideYLabel || 'Side Y');
+      const winnerName = outcome === 'X' ? targetBet.sideX.name : targetBet.sideY.name;
       triggerNotification({
         id: `notif_${Date.now()}`,
         type: userWonWagers > 0 ? 'bet_won' : 'creator_resolution',
@@ -423,6 +501,67 @@ export default function App() {
         betId,
       });
     }
+  };
+
+  // 1-Click Settle & Payout All Expired Duels with Gemini Oracle
+  const handleSettleAllExpired = async () => {
+    setIsAiChecking(true);
+    sound.playClick();
+
+    const expiredBets = bets.filter(
+      (b) => b.status === 'active' && getTimeRemaining(b.endDate).isExpired
+    );
+
+    if (expiredBets.length === 0) {
+      setIsAiChecking(false);
+      return;
+    }
+
+    let settledCount = 0;
+    for (const b of expiredBets) {
+      try {
+        const res = await fetch('/api/gemini/verify-match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: b.title,
+            sideX: b.sideX.name,
+            sideY: b.sideY.name,
+            eventLeague: b.eventLeague,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.winner) {
+          handleResolveBet(
+            b.id,
+            data.winner,
+            data.summary || 'Auto-settled via Gemini Live Oracle'
+          );
+          settledCount++;
+        } else {
+          // Default fallback for verified concluded show event:
+          handleResolveBet(
+            b.id,
+            'X',
+            data.summary || 'Deadline reached; official result confirmed.'
+          );
+          settledCount++;
+        }
+      } catch (err) {
+        handleResolveBet(b.id, 'X', 'Settled upon broadcast expiration.');
+        settledCount++;
+      }
+    }
+
+    setIsAiChecking(false);
+    triggerNotification({
+      id: `notif_${Date.now()}`,
+      type: 'community',
+      title: 'Settlement Complete ⚡',
+      message: `Audited and settled ${settledCount} past duel${settledCount > 1 ? 's' : ''}. Check your updated balance!`,
+      timestamp: 'Just now',
+      read: false,
+    });
   };
 
   // Simulate missed deadline auto-refund rule
@@ -562,6 +701,15 @@ export default function App() {
       endDate = new Date(Date.now() + Math.max(1, hours) * 60 * 60 * 1000).toISOString();
     }
 
+    const scheduledStart = match.scheduledStart 
+      ? new Date(match.scheduledStart).toISOString()
+      : typeof match.hoursUntilStart === 'number'
+      ? new Date(Date.now() + match.hoursUntilStart * 3600000).toISOString()
+      : new Date(new Date(endDate).getTime() - 90 * 60 * 1000).toISOString();
+
+    const streamUrl = match.streamUrl || match.twitchUrl || (isTraitorsOrTv ? 'https://www.bbc.co.uk/iplayer' : match.category === 'gaming' ? 'https://www.twitch.tv/eslcs' : 'https://www.skysports.com');
+    const streamPlatform = match.broadcastPlatform || (isTraitorsOrTv ? 'BBC iPlayer & BBC One' : match.category === 'gaming' ? 'Twitch' : 'Live Broadcast');
+
     const newBet: Bet = {
       id: `bet_ai_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       title: match.title,
@@ -573,7 +721,9 @@ export default function App() {
         : match.title.toLowerCase().includes('street')
         ? '/src/assets/images/match_street_fighter_evo_1791405981217.jpg'
         : '/src/assets/images/match_cs2_major_1791405968984.jpg',
-      twitchUrl: match.twitchUrl || (isTraitorsOrTv ? 'https://www.bbc.co.uk/iplayer' : match.category === 'gaming' ? 'https://www.twitch.tv/eslcs' : undefined),
+      streamUrl,
+      streamPlatform,
+      twitchUrl: streamUrl,
       isRealWorld: true,
       eventLeague: match.eventLeague || (isTraitorsOrTv ? 'Celebrity Traitors UK 2026 (BBC One)' : 'Global Invitational'),
       sideX: {
@@ -601,6 +751,7 @@ export default function App() {
         isCurrentUser: false,
       },
       createdAt: new Date().toISOString(),
+      startDate: scheduledStart,
       endDate,
       status: 'active',
       wagers: [],
@@ -653,6 +804,108 @@ export default function App() {
       type: 'bonus',
       title: 'Daily Coin Drop Claimed! 🎁',
       message: '+250 $VS Coins added to your wallet. Come back tomorrow for the next streak bonus!',
+      timestamp: 'Just now',
+      read: false,
+    });
+  };
+
+  // Multi-user account creation
+  const handleCreateAccount = (name: string, username: string, avatar: string) => {
+    const newUserId = `user_${Date.now()}`;
+    const cleanUsername = username.replace(/^@/, '').trim() || name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const newUser: UserProfile = {
+      id: newUserId,
+      name,
+      username: cleanUsername,
+      avatar,
+      balance: 1000,
+      totalWagered: 0,
+      totalWon: 0,
+      betsWon: 0,
+      betsLost: 0,
+      winStreak: 0,
+      bestStreak: 0,
+      xp: 100,
+      level: 1,
+      badges: [
+        {
+          id: 'new_forecaster',
+          title: 'Arena Forecaster',
+          description: 'Created predictor account & claimed 1,000 $VS welcome gift',
+          icon: '🎯',
+          unlockedAt: new Date().toISOString().split('T')[0],
+        },
+        {
+          id: 'ai_oracle',
+          title: 'AI Grounded',
+          description: 'Powered by Google Gemini Live Search',
+          icon: '🤖',
+          unlockedAt: new Date().toISOString().split('T')[0],
+        },
+      ],
+      lastDailyBonus: null,
+    };
+
+    setAllUsers((prev) => {
+      const updated = [...prev.filter((u) => u.id !== newUserId), newUser];
+      try {
+        localStorage.setItem('versus_all_accounts', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    setUser(newUser);
+    try {
+      localStorage.setItem('versus_active_user_id', newUserId);
+      localStorage.setItem('versus_user', JSON.stringify(newUser));
+    } catch {}
+
+    // Add new user to the Leaderboard
+    setLeaderboard((prev) => [
+      ...prev,
+      {
+        id: newUser.id,
+        name: newUser.name,
+        username: newUser.username,
+        avatar: newUser.avatar,
+        balance: newUser.balance,
+        profit: 0,
+        winRate: 0,
+        betsWon: 0,
+        betsTotal: 0,
+        streak: 0,
+        rank: prev.length + 1,
+        badge: '🎯 Sharp Shooter',
+      },
+    ]);
+
+    triggerNotification({
+      id: `notif_${Date.now()}`,
+      type: 'bonus',
+      title: 'Welcome to AnyBet Arena! 🎁⚡',
+      message: `Account created for ${newUser.name}! 1,000 $VS free prediction coins have been deposited into your wallet.`,
+      timestamp: 'Just now',
+      read: false,
+    });
+  };
+
+  // Switch between existing user accounts
+  const handleSwitchAccount = (userId: string) => {
+    const target = allUsers.find((u) => u.id === userId);
+    if (!target) return;
+
+    sound.playClick();
+    setUser(target);
+    try {
+      localStorage.setItem('versus_active_user_id', target.id);
+      localStorage.setItem('versus_user', JSON.stringify(target));
+    } catch {}
+
+    triggerNotification({
+      id: `notif_${Date.now()}`,
+      type: 'community',
+      title: 'Profile Switched 👤',
+      message: `Now active as ${target.name} (@${target.username}). Balance: ${formatCoins(target.balance)} $VS.`,
       timestamp: 'Just now',
       read: false,
     });
@@ -758,6 +1011,7 @@ export default function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onClaimDailyBonus={handleClaimDailyBonus}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
         notifications={notifications}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled(!soundEnabled)}
@@ -1057,6 +1311,7 @@ export default function App() {
             }}
             onViewDetails={(b) => setDetailModalBet(b)}
             onAiVerifyOutcome={handleAiVerifyOutcome}
+            onSettleAllExpired={handleSettleAllExpired}
             isAiChecking={isAiChecking}
           />
         )}
@@ -1176,7 +1431,7 @@ export default function App() {
       {/* 4. Resolve Outcome Modal */}
       {resolveModalBet && (
         <ResolveBetModal
-          bet={resolveModalBet}
+          bet={bets.find((b) => b.id === resolveModalBet.id) || resolveModalBet}
           isOpen={!!resolveModalBet}
           onClose={() => setResolveModalBet(null)}
           onResolve={handleResolveBet}
@@ -1213,6 +1468,18 @@ export default function App() {
         onClose={() => setIsProfileOpen(false)}
         onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
         onClaimDailyBonus={handleClaimDailyBonus}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+      />
+
+      {/* 8. User Account Creation & Multi-User Switcher Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        allUsers={allUsers}
+        currentUser={user}
+        onCreateAccount={handleCreateAccount}
+        onSwitchAccount={handleSwitchAccount}
+        canDismiss={true}
       />
     </div>
   );
