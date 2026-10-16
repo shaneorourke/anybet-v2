@@ -97,9 +97,9 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
 
         {/* Podium Top 3 */}
         {top3.length >= 3 && (
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-8 pt-6 border-t border-slate-800/80 items-end">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-4 mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-800/80 items-end">
             {/* Rank 2 (Silver) */}
-            <div className="flex flex-col items-center p-3 sm:p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center relative order-1 sm:order-1">
+            <div className="flex flex-col items-center p-2 sm:p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center relative order-1 sm:order-1">
               <div className="absolute -top-3 w-6 h-6 rounded-full bg-slate-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-md">
                 2
               </div>
@@ -107,41 +107,41 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                 src={top3[1].avatar}
                 alt={top3[1].name}
                 referrerPolicy="no-referrer"
-                className="w-12 h-12 rounded-full border-2 border-slate-400 mb-2 mt-1"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-400 mb-1.5 mt-1"
               />
-              <span className="font-bold text-xs sm:text-sm text-white truncate w-full">
+              <span className="font-bold text-[11px] sm:text-sm text-white truncate w-full">
                 {top3[1].name}
               </span>
-              <span className="text-[10px] text-slate-400 truncate">@{top3[1].username}</span>
-              <div className="mt-2 text-xs font-mono font-bold text-emerald-400">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 truncate">@{top3[1].username}</span>
+              <div className="mt-1.5 text-[11px] sm:text-xs font-mono font-bold text-emerald-400 truncate w-full">
                 +{formatCoins(top3[1].profit)} $VS
               </div>
             </div>
 
             {/* Rank 1 (Gold - Elevated) */}
-            <div className="flex flex-col items-center p-4 sm:p-5 rounded-2xl bg-slate-950 border border-yellow-500/40 text-center relative -mt-4 shadow-xl shadow-yellow-500/5 order-2 sm:order-2">
-              <Crown className="w-6 h-6 text-yellow-400 mb-1" />
-              <div className="absolute -top-3.5 w-7 h-7 rounded-full bg-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-md">
+            <div className="flex flex-col items-center p-2.5 sm:p-5 rounded-2xl bg-slate-950 border border-yellow-500/40 text-center relative -mt-3 sm:-mt-4 shadow-xl shadow-yellow-500/5 order-2 sm:order-2">
+              <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 mb-0.5" />
+              <div className="absolute -top-3.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-yellow-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-md">
                 1
               </div>
               <img
                 src={top3[0].avatar}
                 alt={top3[0].name}
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-full border-2 border-yellow-400 mb-2"
+                className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-yellow-400 mb-1.5"
               />
-              <span className="font-extrabold text-sm sm:text-base text-white truncate w-full">
+              <span className="font-extrabold text-xs sm:text-base text-white truncate w-full">
                 {top3[0].name}
               </span>
-              <span className="text-[11px] text-yellow-400/90 font-semibold">{top3[0].badge}</span>
-              <div className="mt-2 text-sm sm:text-base font-mono font-black text-yellow-300">
+              <span className="text-[10px] sm:text-[11px] text-yellow-400/90 font-semibold truncate w-full">{top3[0].badge}</span>
+              <div className="mt-1.5 text-xs sm:text-base font-mono font-black text-yellow-300 truncate w-full">
                 +{formatCoins(top3[0].profit)} $VS
               </div>
-              <span className="text-[10px] text-slate-400">{top3[0].winRate}% Win Rate</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-400 hidden xs:inline sm:inline">{top3[0].winRate}% Win Rate</span>
             </div>
 
             {/* Rank 3 (Bronze) */}
-            <div className="flex flex-col items-center p-3 sm:p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center relative order-3 sm:order-3">
+            <div className="flex flex-col items-center p-2 sm:p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-center relative order-3 sm:order-3">
               <div className="absolute -top-3 w-6 h-6 rounded-full bg-amber-700 text-white font-black text-xs flex items-center justify-center shadow-md">
                 3
               </div>
@@ -149,13 +149,13 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                 src={top3[2].avatar}
                 alt={top3[2].name}
                 referrerPolicy="no-referrer"
-                className="w-12 h-12 rounded-full border-2 border-amber-700 mb-2 mt-1"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-amber-700 mb-1.5 mt-1"
               />
-              <span className="font-bold text-xs sm:text-sm text-white truncate w-full">
+              <span className="font-bold text-[11px] sm:text-sm text-white truncate w-full">
                 {top3[2].name}
               </span>
-              <span className="text-[10px] text-slate-400 truncate">@{top3[2].username}</span>
-              <div className="mt-2 text-xs font-mono font-bold text-emerald-400">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 truncate">@{top3[2].username}</span>
+              <div className="mt-1.5 text-[11px] sm:text-xs font-mono font-bold text-emerald-400 truncate w-full">
                 +{formatCoins(top3[2].profit)} $VS
               </div>
             </div>
@@ -183,40 +183,46 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
             return (
               <div
                 key={item.id}
-                className={`px-5 py-3.5 flex items-center justify-between text-xs transition-colors ${
+                className={`px-3 sm:px-5 py-3 sm:py-3.5 flex items-center justify-between text-xs transition-colors ${
                   isCurrentUser
                     ? 'bg-emerald-500/10 border-l-4 border-l-emerald-500'
                     : 'hover:bg-slate-800/40'
                 }`}
               >
                 {/* Left: Rank & User */}
-                <div className="flex items-center gap-4">
-                  <span className="w-8 text-center font-mono font-bold text-slate-400">
+                <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                  <span className="w-6 sm:w-8 text-center font-mono font-bold text-slate-400 shrink-0">
                     #{index + 1}
                   </span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <img
                       src={item.avatar}
                       alt={item.name}
                       referrerPolicy="no-referrer"
-                      className="w-8 h-8 rounded-full border border-slate-700"
+                      className="w-8 h-8 rounded-full border border-slate-700 shrink-0"
                     />
-                    <div>
-                      <div className="font-bold text-slate-100 flex items-center gap-1.5">
-                        <span>{item.name}</span>
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-100 flex items-center gap-1.5 truncate">
+                        <span className="truncate">{item.name}</span>
                         {isCurrentUser && (
-                          <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/20 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/20 px-1 py-0.2 rounded shrink-0">
                             YOU
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] text-slate-400">@{item.username}</span>
+                      <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                        <span className="truncate">@{item.username}</span>
+                        <span className="sm:hidden text-amber-400 font-bold flex items-center gap-0.5 shrink-0">
+                          <Flame className="w-2.5 h-2.5" />
+                          {item.streak}W
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Right: Metrics */}
-                <div className="flex items-center gap-6 sm:gap-12 text-right font-mono">
+                <div className="flex items-center gap-3 sm:gap-12 text-right font-mono shrink-0">
                   <div className="hidden sm:block">
                     <span className="text-slate-200 font-bold">{item.winRate}%</span>
                     <span className="text-[10px] text-slate-500 block font-sans">
@@ -230,11 +236,11 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
                   </div>
 
                   <div className="text-right">
-                    <span className="text-sm font-bold text-emerald-400">
+                    <span className="text-xs sm:text-sm font-bold text-emerald-400 block">
                       +{formatCoins(item.profit)} $VS
                     </span>
-                    <span className="text-[10px] text-slate-400 block font-sans">
-                      Balance: {formatCoins(item.balance)}
+                    <span className="text-[9px] sm:text-[10px] text-slate-400 block font-sans">
+                      Bal: {formatCoins(item.balance)}
                     </span>
                   </div>
                 </div>

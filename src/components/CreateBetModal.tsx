@@ -212,11 +212,14 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
       <div 
-        className="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
+        className="w-full max-w-xl max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1 bg-slate-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div>
@@ -232,14 +235,15 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Close duel creator"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-5 flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 flex-1 pb-[max(20px,env(safe-area-inset-bottom,20px))]">
           {/* AI Co-Pilot: Auto-Draft from Keywords */}
           <div className="p-3.5 rounded-xl bg-gradient-to-r from-sky-950/60 to-slate-900 border border-sky-500/30 space-y-2">
             <div className="flex items-center justify-between">

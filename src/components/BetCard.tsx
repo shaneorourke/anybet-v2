@@ -249,8 +249,23 @@ export const BetCard: React.FC<BetCardProps> = ({
         {/* Head-to-Head Showdown Grid */}
         <div className="mt-4 pt-3 border-t border-slate-800/80">
           <div className="grid grid-cols-2 gap-2 text-xs">
-            {/* Side X */}
-            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 flex flex-col justify-between">
+            {/* Side X - Tap-to-wager on mobile */}
+            <div 
+              onClick={() => {
+                if (canBet) {
+                  sound.playClick();
+                  onQuickWager(bet, 'X');
+                } else {
+                  onViewDetails(bet);
+                }
+              }}
+              className={`bg-slate-950/70 p-2.5 sm:p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                canBet 
+                  ? 'border-slate-800 hover:border-emerald-500/50 cursor-pointer active:scale-[0.98]' 
+                  : 'border-slate-800/60'
+              }`}
+              title={canBet ? `Click to wager on ${bet.sideX.name}` : bet.sideX.name}
+            >
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="font-semibold text-slate-200 truncate" title={bet.sideX.name}>
                   {bet.sideX.avatarOrFlag && <span className="mr-1">{bet.sideX.avatarOrFlag}</span>}
@@ -259,7 +274,7 @@ export const BetCard: React.FC<BetCardProps> = ({
                 <span className="text-[10px] uppercase font-bold text-emerald-400">Side X</span>
               </div>
               <div className="flex items-baseline justify-between mt-1">
-                <span className="font-mono tabular-nums text-sm font-extrabold text-emerald-400">
+                <span className="font-mono tabular-nums text-sm sm:text-base font-extrabold text-emerald-400">
                   {oddsX}x
                 </span>
                 <span className="text-[11px] font-mono text-slate-400">
@@ -268,8 +283,23 @@ export const BetCard: React.FC<BetCardProps> = ({
               </div>
             </div>
 
-            {/* Side Y */}
-            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60 flex flex-col justify-between">
+            {/* Side Y - Tap-to-wager on mobile */}
+            <div 
+              onClick={() => {
+                if (canBet) {
+                  sound.playClick();
+                  onQuickWager(bet, 'Y');
+                } else {
+                  onViewDetails(bet);
+                }
+              }}
+              className={`bg-slate-950/70 p-2.5 sm:p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                canBet 
+                  ? 'border-slate-800 hover:border-rose-500/50 cursor-pointer active:scale-[0.98]' 
+                  : 'border-slate-800/60'
+              }`}
+              title={canBet ? `Click to wager on ${bet.sideY.name}` : bet.sideY.name}
+            >
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="font-semibold text-slate-200 truncate" title={bet.sideY.name}>
                   {bet.sideY.avatarOrFlag && <span className="mr-1">{bet.sideY.avatarOrFlag}</span>}
@@ -278,7 +308,7 @@ export const BetCard: React.FC<BetCardProps> = ({
                 <span className="text-[10px] uppercase font-bold text-rose-400">Side Y</span>
               </div>
               <div className="flex items-baseline justify-between mt-1">
-                <span className="font-mono tabular-nums text-sm font-extrabold text-rose-400">
+                <span className="font-mono tabular-nums text-sm sm:text-base font-extrabold text-rose-400">
                   {oddsY}x
                 </span>
                 <span className="text-[11px] font-mono text-slate-400">
@@ -322,7 +352,7 @@ export const BetCard: React.FC<BetCardProps> = ({
                   sound.playClick();
                   onQuickWager(bet, 'X');
                 }}
-                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 transition-all active:scale-95 truncate text-center"
+                className="flex-1 min-h-[44px] py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 transition-all active:scale-95 truncate text-center flex items-center justify-center"
               >
                 Bet {bet.sideX.name.split(' ')[0]} ({oddsX}x)
               </button>
@@ -332,7 +362,7 @@ export const BetCard: React.FC<BetCardProps> = ({
                   sound.playClick();
                   onQuickWager(bet, 'Y');
                 }}
-                className="flex-1 py-2 px-3 text-xs font-bold rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:border-rose-500/60 transition-all active:scale-95 truncate text-center"
+                className="flex-1 min-h-[44px] py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:border-rose-500/60 transition-all active:scale-95 truncate text-center flex items-center justify-center"
               >
                 Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
               </button>
@@ -342,8 +372,9 @@ export const BetCard: React.FC<BetCardProps> = ({
                   sound.playClick();
                   onViewDetails(bet);
                 }}
-                className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition-all active:scale-95 flex items-center justify-center shrink-0"
                 title="View Match Stats & Details"
+                aria-label="View Match Details"
               >
                 <BarChart3 className="w-4 h-4" />
               </button>

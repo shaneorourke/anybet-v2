@@ -1001,7 +1001,7 @@ export default function App() {
   const spotlightBet = bets.find((b) => b.id === 'bet_1') || bets[0];
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] text-slate-100 flex flex-col pb-20 md:pb-12 selection:bg-emerald-500/30 selection:text-emerald-200">
+    <div className="min-h-screen bg-[#0B0E14] text-slate-100 flex flex-col pb-28 sm:pb-24 md:pb-12 selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Top Bar Navigation */}
       <Navbar
         user={user}
@@ -1041,13 +1041,13 @@ export default function App() {
       )}
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* VIEW 1: ARENA (Open Duels) */}
         {currentView === 'arena' && (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {/* Hero Spotlight Duel Section */}
             {spotlightBet && spotlightBet.status === 'active' && (
-              <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl">
+              <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl">
                 {spotlightBet.bannerImage && (
                   <div className="absolute inset-0 z-0">
                     <img
@@ -1060,7 +1060,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="relative z-10 p-6 sm:p-8 lg:p-10 max-w-2xl space-y-4">
+                <div className="relative z-10 p-4 sm:p-8 lg:p-10 max-w-2xl space-y-3 sm:space-y-4">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
                     <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
                     <span>Featured Championship Duel</span>
@@ -1070,7 +1070,7 @@ export default function App() {
                     </span>
                   </div>
 
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                  <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
                     {spotlightBet.title}
                   </h1>
 
@@ -1079,20 +1079,20 @@ export default function App() {
                   </p>
 
                   {/* Dynamic Head-to-Head Hero Split */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                     <button
                       onClick={() => {
                         sound.playClick();
                         setWagerModalBet(spotlightBet);
                         setWagerModalSide('X');
                       }}
-                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 active:scale-98 transition-all"
+                      className="flex-1 min-h-[46px] py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 active:scale-98 transition-all"
                     >
                       <span className="truncate">Back {spotlightBet.sideX.name}</span>
                       <span className="font-mono font-extrabold ml-2">{spotlightBet.sideX.odds}x</span>
                     </button>
 
-                    <div className="text-xs font-black text-slate-500 text-center uppercase tracking-widest sm:px-1">
+                    <div className="text-xs font-black text-slate-500 text-center uppercase tracking-widest sm:px-1 py-0.5 sm:py-0">
                       VS
                     </div>
 
@@ -1102,7 +1102,7 @@ export default function App() {
                         setWagerModalBet(spotlightBet);
                         setWagerModalSide('Y');
                       }}
-                      className="flex-1 py-3 px-4 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-lg shadow-rose-500/20 active:scale-98 transition-all"
+                      className="flex-1 min-h-[46px] py-3 px-4 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-lg shadow-rose-500/20 active:scale-98 transition-all"
                     >
                       <span className="truncate">Back {spotlightBet.sideY.name}</span>
                       <span className="font-mono font-extrabold ml-2">{spotlightBet.sideY.odds}x</span>
@@ -1137,16 +1137,16 @@ export default function App() {
                 <div className="relative flex-1 max-w-md">
                   <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    type="text"
-                    placeholder="Search showdowns (e.g. England, Jim, Tesla)..."
+                    type="search"
+                    placeholder="Search showdowns (e.g. England, Traitors, Tesla)..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 pl-10 pr-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                    className="w-full h-11 pl-10 pr-4 rounded-xl bg-slate-900 border border-slate-800 text-sm font-medium text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
 
                 {/* Sort Filter Controls */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 touch-scroll">
                   {/* AI Oracle Buttons */}
                   <button
                     onClick={() => {
@@ -1183,7 +1183,7 @@ export default function App() {
                           sound.playClick();
                           setSortBy(s.id as any);
                         }}
-                        className={`px-3 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                        className={`px-3 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors whitespace-nowrap active:scale-95 ${
                           sortBy === s.id
                             ? 'bg-slate-800 text-emerald-400 border border-slate-700'
                             : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
@@ -1198,7 +1198,7 @@ export default function App() {
               </div>
 
               {/* Category Filter Pills / Buttons */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 touch-scroll">
                 {[
                   { id: 'all', label: 'All Duels' },
                   { id: 'entertainment', label: '🏰 Traitors 2026 & TV' },
@@ -1214,7 +1214,7 @@ export default function App() {
                       sound.playClick();
                       setSelectedCategory(c.id);
                     }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all active:scale-95 whitespace-nowrap ${
                       selectedCategory === c.id
                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
                         : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -1367,6 +1367,7 @@ export default function App() {
         onNavigate={setCurrentView}
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenProfile={() => setIsProfileOpen(true)}
+        activeWagersCount={bets.filter((b) => b.status === 'active' && b.wagers.some((w) => w.userId === user.id)).length}
       />
 
       {/* MODALS */}

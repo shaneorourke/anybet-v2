@@ -58,11 +58,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
       <div 
-        className="w-full max-w-md rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200 mt-12 sm:mt-0 max-h-[85vh] flex flex-col"
+        className="w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200 max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1 bg-slate-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
@@ -74,7 +77,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Close notifications"
           >
             <X className="w-5 h-5" />
           </button>
@@ -173,7 +177,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         </div>
 
         {/* Bottom Actions */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs shrink-0">
+        <div className="p-3.5 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs shrink-0 pb-[max(14px,env(safe-area-inset-bottom,14px))]">
           <button
             onClick={() => {
               sound.playClick();

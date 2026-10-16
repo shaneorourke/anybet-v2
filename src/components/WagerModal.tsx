@@ -89,11 +89,14 @@ export const WagerModal: React.FC<WagerModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm transition-opacity">
       <div 
-        className="w-full max-w-lg rounded-t-3xl sm:rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
+        className="w-full max-w-lg max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1 bg-slate-700/80 rounded-full mx-auto mt-2.5 mb-0.5 sm:hidden shrink-0" />
+
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div>
             <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-400">
               Interactive Bet Slip
@@ -107,7 +110,8 @@ export const WagerModal: React.FC<WagerModalProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Close bet slip"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,7 +119,7 @@ export const WagerModal: React.FC<WagerModalProps> = ({
 
         {/* Content */}
         {!submitted ? (
-          <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 sm:space-y-5 overflow-y-auto flex-1 pb-[max(16px,env(safe-area-inset-bottom,16px))]">
             {isExpired && (
               <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
                 <strong className="block font-bold">🔒 Betting Closed (Deadline Passed)</strong>
@@ -208,7 +212,7 @@ export const WagerModal: React.FC<WagerModalProps> = ({
                     key={val}
                     type="button"
                     onClick={() => handleQuickAdd(val)}
-                    className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+                    className="flex-1 min-h-[40px] py-2 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 active:scale-95 transition-all"
                   >
                     +{val}
                   </button>
@@ -216,7 +220,7 @@ export const WagerModal: React.FC<WagerModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSetMax}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+                  className="px-3 min-h-[40px] py-2 text-xs font-extrabold rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25 active:scale-95 transition-all"
                 >
                   MAX
                 </button>
@@ -253,11 +257,11 @@ export const WagerModal: React.FC<WagerModalProps> = ({
             <button
               type="submit"
               disabled={isExpired || amount <= 0 || amount > user.balance}
-              className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${
+              className={`w-full min-h-[50px] py-3.5 px-4 rounded-xl text-base sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 shadow-lg ${
                 !isExpired && amount > 0 && amount <= user.balance
                   ? selectedSide === 'X'
-                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 active:scale-98'
-                    : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20 active:scale-98'
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 active:scale-98'
+                    : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/25 active:scale-98'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
             >

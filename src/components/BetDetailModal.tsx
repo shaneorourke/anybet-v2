@@ -68,11 +68,13 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
   const userWagers = bet.wagers.filter((w) => w.userId === user.id);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
       <div 
-        className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
+        className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-[#0F141F] border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1 bg-slate-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
         {/* Banner with Scrim Header */}
         <div className="relative shrink-0">
           {bet.bannerImage ? (
@@ -596,7 +598,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
         </div>
 
         {/* Bottom CTA Bar */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950 flex items-center gap-2 shrink-0">
+        <div className="p-3 sm:p-4 border-t border-slate-800 bg-[#0B0E14] flex items-center gap-2 sm:gap-3 shrink-0 pb-[max(14px,env(safe-area-inset-bottom,14px))]">
           {isActive && !timeInfo.isExpired ? (
             <>
               <button
@@ -604,7 +606,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                   sound.playClick();
                   onOpenWager(bet, 'X');
                 }}
-                className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all active:scale-98 truncate"
+                className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all active:scale-98 truncate flex items-center justify-center shadow-md shadow-emerald-500/20"
               >
                 Bet {bet.sideX.name.split(' ')[0]} ({oddsX}x)
               </button>
@@ -614,7 +616,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                   sound.playClick();
                   onOpenWager(bet, 'Y');
                 }}
-                className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-white transition-all active:scale-98 truncate"
+                className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-rose-500 hover:bg-rose-400 text-white transition-all active:scale-98 truncate flex items-center justify-center shadow-md shadow-rose-500/20"
               >
                 Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
               </button>
@@ -628,7 +630,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                     onAiVerifyOutcome(bet);
                   }}
                   disabled={isAiChecking}
-                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md"
                 >
                   <Bot className={`w-4 h-4 ${isAiChecking ? 'animate-spin' : ''}`} />
                   <span>{isAiChecking ? 'Checking Grounding...' : '🤖 Check Live Result with Search & Settle'}</span>
@@ -639,7 +641,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                     sound.playClick();
                     onOpenResolve(bet);
                   }}
-                  className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 transition-all shadow-md"
+                  className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 transition-all shadow-md"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>⚡ Settle Duel & Distribute Payouts Now</span>
@@ -652,7 +654,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                 sound.playClick();
                 onOpenShare(bet);
               }}
-              className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center gap-2 transition-colors"
+              className="w-full min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center gap-2 transition-colors"
             >
               <Share2 className="w-4 h-4" />
               <span>Share Settled Match Outcome</span>
