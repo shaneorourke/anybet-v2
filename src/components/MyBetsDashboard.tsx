@@ -152,7 +152,7 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
           }`}
         >
           <Flame className="w-3.5 h-3.5 text-amber-400" />
-          <span>Active Wagers ({activeWagers.length})</span>
+          <span>Active ({activeWagers.length})</span>
         </button>
 
         <button
@@ -167,7 +167,7 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
           }`}
         >
           <History className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Past Wagers ({pastWagers.length})</span>
+          <span>Past ({pastWagers.length})</span>
         </button>
 
         <button
@@ -182,7 +182,7 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
           }`}
         >
           <Gavel className="w-3.5 h-3.5 text-purple-400" />
-          <span>Created Duels ({createdBets.length})</span>
+          <span>Created ({createdBets.length})</span>
         </button>
       </div>
 
