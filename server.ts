@@ -4,7 +4,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import fs from 'fs';
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,6 +14,264 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Persistent shared database for multi-user synchronization across devices & browsers
+const STORE_PATH = path.join(__dirname, 'server_data.json');
+
+const DEFAULT_STORE = {
+  bets: [
+    {
+      id: 'bet_traitors_ep3',
+      title: 'Celebrity Traitors UK 2026 (Ep 3): Round Table Traitor Banishment — Richard E. Grant vs James Acaster',
+      category: 'entertainment',
+      sideX: { id: 'X', name: 'Richard E. Grant (Banished)', avatarOrFlag: '🗝️', pool: 4500, bettorsCount: 18, odds: 2.1 },
+      sideY: { id: 'Y', name: 'James Acaster (Survives)', avatarOrFlag: '🎭', pool: 5500, bettorsCount: 22, odds: 1.8 },
+      totalPot: 10000,
+      rules: "Official BBC One Episode 3 broadcast: First of the secret Traitors to be unmasked and banished at Claudia Winkleman's Round Table.",
+      creator: { id: 'oracle_ai', name: 'Versus Gemini Oracle', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=GeminiOracle&backgroundColor=0284c7', isCurrentUser: false },
+      createdAt: new Date().toISOString(),
+      startDate: new Date(Date.now() - 16 * 3600000).toISOString(),
+      endDate: new Date(Date.now() - 14 * 3600000).toISOString(),
+      status: 'active',
+      isRealWorld: true,
+      eventLeague: 'Celebrity Traitors UK 2026 (BBC One)',
+      wagers: [],
+      stats: { views: 1240, shares: 88 },
+    },
+    {
+      id: 'bet_live_superclash',
+      title: 'UFC Fight Night: Edwards vs Covington — Welterweight Championship Main Card',
+      category: 'sports',
+      sideX: { id: 'X', name: 'Leon Edwards', avatarOrFlag: '🥊', pool: 5200, bettorsCount: 24, odds: 1.85 },
+      sideY: { id: 'Y', name: 'Colby Covington', avatarOrFlag: '🥋', pool: 4800, bettorsCount: 22, odds: 2.15 },
+      totalPot: 10000,
+      rules: '5 Rounds Championship Main Event decision or stoppage verified by official UFC judges scorecards.',
+      creator: { id: 'oracle_ai', name: 'Combat Sports Desk', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=UFCDesk&backgroundColor=881337', isCurrentUser: false },
+      createdAt: new Date().toISOString(),
+      startDate: new Date(Date.now() - 35 * 60000).toISOString(),
+      endDate: new Date(Date.now() + 45 * 60000).toISOString(),
+      status: 'active',
+      isRealWorld: true,
+      eventLeague: 'UFC Fight Night Live',
+      wagers: [],
+      stats: { views: 3100, shares: 140 },
+    },
+  ],
+  users: [
+    {
+      id: 'user_current',
+      name: "Shane O'Rourke",
+      username: 'shaneo_predicts',
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ShaneVS&backgroundColor=0f172a',
+      balance: 1000,
+      totalWagered: 0,
+      totalWon: 0,
+      betsWon: 0,
+      betsLost: 0,
+      winStreak: 0,
+      bestStreak: 0,
+      xp: 150,
+      level: 1,
+      lastDailyBonus: null,
+      badges: [],
+    },
+  ],
+  leaderboard: [
+    {
+      id: 'user_top1',
+      name: 'Oracle_Zeus',
+      username: 'zeus_predictions',
+      avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ZeusOracle&backgroundColor=0369a1',
+      balance: 18450,
+      profit: 14200,
+      winRate: 84,
+      betsWon: 42,
+      betsTotal: 50,
+      streak: 8,
+      rank: 1,
+      badge: '👑 Grand Oracle',
+    },
+  ],
+};
+
+function loadStore(): { bets: any[]; users: any[]; leaderboard: any[] } {
+  try {
+    if (fs.existsSync(STORE_PATH)) {
+      const data = JSON.parse(fs.readFileSync(STORE_PATH, 'utf-8'));
+      if (data && Array.isArray(data.bets) && data.bets.length > 0) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading server_data.json:', err);
+  }
+
+  saveStore(DEFAULT_STORE);
+  return DEFAULT_STORE;
+}
+
+function saveStore(data: { bets: any[]; users: any[]; leaderboard: any[] }) {
+  try {
+    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving server_data.json:', err);
+  }
+}
+
+let store = loadStore();
+
+// ==========================================
+// Multi-User Shared API Endpoints
+// ==========================================
+
+// 1. Get all shared showdowns & duels
+app.get('/api/bets', (_req: Request, res: Response) => {
+  res.json({ success: true, bets: store.bets });
+});
+
+// 2. Create a new showdown (visible to ALL users across devices)
+app.post('/api/bets', (req: Request, res: Response) => {
+  const newBet = req.body;
+  if (!newBet || !newBet.id || !newBet.title) {
+    return res.status(400).json({ success: false, error: 'Invalid showdown payload' });
+  }
+
+  store.bets = [newBet, ...store.bets.filter((b: any) => b.id !== newBet.id)];
+  saveStore(store);
+  res.json({ success: true, bet: newBet });
+});
+
+// 3. Place a wager on a showdown (instantly updates pool and roster for all users)
+app.post('/api/bets/:id/wager', (req: Request, res: Response) => {
+  const betId = req.params.id;
+  const { wager, side, amount } = req.body;
+  const targetBetIndex = store.bets.findIndex((b: any) => b.id === betId);
+  if (targetBetIndex === -1) {
+    return res.status(404).json({ success: false, error: 'Showdown not found' });
+  }
+
+  const bet = store.bets[targetBetIndex];
+
+  // Prevent duplicate prediction on same showdown
+  const existingWager = (bet.wagers || []).find(
+    (w: any) => w.userId === wager.userId && w.status === 'pending'
+  );
+  if (existingWager) {
+    return res.status(400).json({ success: false, error: 'User already has a prediction on this showdown' });
+  }
+
+  const newPoolX = side === 'X' ? bet.sideX.pool + amount : bet.sideX.pool;
+  const newPoolY = side === 'Y' ? bet.sideY.pool + amount : bet.sideY.pool;
+  const newBettorsX = side === 'X' ? bet.sideX.bettorsCount + 1 : bet.sideX.bettorsCount;
+  const newBettorsY = side === 'Y' ? bet.sideY.bettorsCount + 1 : bet.sideY.bettorsCount;
+  const newTotal = newPoolX + newPoolY;
+
+  let oddsX = 2.0;
+  let oddsY = 2.0;
+  if (newTotal > 0) {
+    oddsX = Number((newTotal / Math.max(1, newPoolX)).toFixed(2));
+    oddsY = Number((newTotal / Math.max(1, newPoolY)).toFixed(2));
+  }
+
+  const updatedBet = {
+    ...bet,
+    totalPot: newTotal,
+    sideX: {
+      ...bet.sideX,
+      pool: newPoolX,
+      bettorsCount: newBettorsX,
+      odds: oddsX,
+    },
+    sideY: {
+      ...bet.sideY,
+      pool: newPoolY,
+      bettorsCount: newBettorsY,
+      odds: oddsY,
+    },
+    wagers: [wager, ...(bet.wagers || [])],
+  };
+
+  store.bets[targetBetIndex] = updatedBet;
+  saveStore(store);
+
+  res.json({ success: true, bet: updatedBet });
+});
+
+// 4. Resolve a showdown with outcome
+app.post('/api/bets/:id/resolve', (req: Request, res: Response) => {
+  const betId = req.params.id;
+  const { outcome, resolutionNotes, resolvedBet } = req.body;
+  const targetBetIndex = store.bets.findIndex((b: any) => b.id === betId);
+  if (targetBetIndex === -1) {
+    return res.status(404).json({ success: false, error: 'Showdown not found' });
+  }
+
+  if (resolvedBet) {
+    store.bets[targetBetIndex] = resolvedBet;
+  } else {
+    store.bets[targetBetIndex].status = outcome === 'refunded' ? 'cancelled_refunded' : 'resolved';
+    store.bets[targetBetIndex].outcome = outcome;
+    store.bets[targetBetIndex].resolutionNotes = resolutionNotes;
+    store.bets[targetBetIndex].resolvedAt = new Date().toISOString();
+  }
+
+  saveStore(store);
+  res.json({ success: true, bet: store.bets[targetBetIndex] });
+});
+
+// 5. Get shared user accounts & leaderboard
+app.get('/api/accounts', (_req: Request, res: Response) => {
+  res.json({ success: true, users: store.users, leaderboard: store.leaderboard });
+});
+
+// 6. Register a new user account across all devices
+app.post('/api/accounts', (req: Request, res: Response) => {
+  const newUser = req.body;
+  if (!newUser || !newUser.id || !newUser.name) {
+    return res.status(400).json({ success: false, error: 'Invalid user profile' });
+  }
+
+  store.users = [...store.users.filter((u: any) => u.id !== newUser.id), newUser];
+
+  const existsInLb = store.leaderboard.some((l: any) => l.id === newUser.id);
+  if (!existsInLb) {
+    store.leaderboard.push({
+      id: newUser.id,
+      name: newUser.name,
+      username: newUser.username,
+      avatar: newUser.avatar,
+      balance: newUser.balance,
+      profit: 0,
+      winRate: 0,
+      betsWon: 0,
+      betsTotal: 0,
+      streak: 0,
+      rank: store.leaderboard.length + 1,
+      badge: '🎯 Sharp Shooter',
+    });
+  }
+
+  saveStore(store);
+  res.json({ success: true, user: newUser });
+});
+
+// 7. Community wagers feed (all predictions made by all users)
+app.get('/api/community-wagers', (_req: Request, res: Response) => {
+  const allWagers: any[] = [];
+  store.bets.forEach((b: any) => {
+    (b.wagers || []).forEach((w: any) => {
+      allWagers.push({
+        ...w,
+        betId: b.id,
+        betTitle: b.title,
+        betStatus: b.status,
+        betCategory: b.category,
+      });
+    });
+  });
+  allWagers.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  res.json({ success: true, wagers: allWagers.slice(0, 60) });
+});
 
 // Initialize Google GenAI with telemetry User-Agent
 const ai = new GoogleGenAI({

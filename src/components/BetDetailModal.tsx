@@ -59,7 +59,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
     bet.streamPlatform,
     bet.eventLeague || bet.title
   );
-  const isCreator = bet.creator.isCurrentUser || bet.creator.id === user.id;
+  const isCreator = bet.creator.id === user.id;
   const isResolved = bet.status === 'resolved';
   const isRefunded = bet.status === 'cancelled_refunded';
   const isActive = bet.status === 'active';
@@ -460,7 +460,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
                   referrerPolicy="no-referrer"
                   className="w-5 h-5 rounded-full"
                 />
-                <span>Created by <strong className="text-slate-200">{bet.creator.name}</strong> {isCreator && '(You)'}</span>
+                <span>Created by <strong className="text-slate-200">{isCreator ? `${bet.creator.name} (You)` : bet.creator.name}</strong></span>
               </div>
               <span className="text-[11px]">End Date: {new Date(bet.endDate).toLocaleDateString()}</span>
             </div>
@@ -600,27 +600,41 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
         {/* Bottom CTA Bar */}
         <div className="p-3 sm:p-4 border-t border-slate-800 bg-[#0B0E14] flex items-center gap-2 sm:gap-3 shrink-0 pb-[max(14px,env(safe-area-inset-bottom,14px))]">
           {isActive && !timeInfo.isExpired ? (
-            <>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onOpenWager(bet, 'X');
-                }}
-                className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all active:scale-98 truncate flex items-center justify-center shadow-md shadow-emerald-500/20"
-              >
-                Bet {bet.sideX.name.split(' ')[0]} ({oddsX}x)
-              </button>
+            userWagers.length > 0 && userWagers.some((w) => w.status === 'pending') ? (
+              <div className="flex-1 flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-900 border border-emerald-500/40 text-xs shadow-inner">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="text-slate-300">
+                    Your Prediction Locked: <strong className={userWagers[0].side === 'X' ? 'text-emerald-400' : 'text-rose-400'}>{userWagers[0].sideName}</strong>
+                  </span>
+                </div>
+                <span className="font-mono font-bold text-emerald-400">
+                  {formatCoins(userWagers[0].amount)} $VS
+                </span>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenWager(bet, 'X');
+                  }}
+                  className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all active:scale-98 truncate flex items-center justify-center shadow-md shadow-emerald-500/20"
+                >
+                  Bet {bet.sideX.name.split(' ')[0]} ({oddsX}x)
+                </button>
 
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onOpenWager(bet, 'Y');
-                }}
-                className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-rose-500 hover:bg-rose-400 text-white transition-all active:scale-98 truncate flex items-center justify-center shadow-md shadow-rose-500/20"
-              >
-                Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
-              </button>
-            </>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenWager(bet, 'Y');
+                  }}
+                  className="flex-1 min-h-[46px] py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold bg-rose-500 hover:bg-rose-400 text-white transition-all active:scale-98 truncate flex items-center justify-center shadow-md shadow-rose-500/20"
+                >
+                  Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
+                </button>
+              </>
+            )
           ) : isActive && timeInfo.isExpired ? (
             <>
               {onAiVerifyOutcome && (!bet.lastAiCheck?.concluded || !bet.lastAiCheck.winner) ? (

@@ -66,7 +66,21 @@ export default function App() {
         }
       }
       const saved = localStorage.getItem('versus_user');
-      return saved ? JSON.parse(saved) : CURRENT_USER;
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+      // Generate a distinct device user so new visitors have their own predictor identity
+      const uniqueDeviceUser: UserProfile = {
+        ...CURRENT_USER,
+        id: `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
+      };
+      try {
+        localStorage.setItem('versus_active_user_id', uniqueDeviceUser.id);
+        localStorage.setItem('versus_user', JSON.stringify(uniqueDeviceUser));
+      } catch {}
+      return uniqueDeviceUser;
     } catch {
       return CURRENT_USER;
     }
@@ -184,6 +198,66 @@ export default function App() {
     sound.enabled = soundEnabled;
   }, [soundEnabled]);
 
+  // Load and periodically sync shared bets & accounts across all users & devices
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchSharedState = async () => {
+      try {
+        const [betsRes, accountsRes] = await Promise.all([
+          fetch('/api/bets').then((r) => r.json()).catch(() => null),
+          fetch('/api/accounts').then((r) => r.json()).catch(() => null),
+        ]);
+
+        if (isMounted) {
+          if (betsRes && betsRes.success && Array.isArray(betsRes.bets) && betsRes.bets.length > 0) {
+            setBets((prev) => {
+              const serverMap = new Map(betsRes.bets.map((b: Bet) => [b.id, b]));
+              const localUnsynced = prev.filter((b) => !serverMap.has(b.id));
+              return [...localUnsynced, ...betsRes.bets];
+            });
+          }
+
+          if (accountsRes && accountsRes.success && Array.isArray(accountsRes.users)) {
+            setAllUsers((prev) => {
+              const userMap = new Map<string, UserProfile>(accountsRes.users.map((u: UserProfile) => [u.id, u]));
+              prev.forEach((u) => {
+                if (!userMap.has(u.id)) {
+                  userMap.set(u.id, u);
+                }
+              });
+              return Array.from(userMap.values());
+            });
+          }
+
+          if (accountsRes && accountsRes.success && Array.isArray(accountsRes.leaderboard)) {
+            setLeaderboard(accountsRes.leaderboard);
+          }
+        }
+      } catch (err) {
+        console.warn('Sync with server skipped:', err);
+      }
+    };
+
+    fetchSharedState();
+
+    // Poll every 8 seconds for real-time updates across users & devices
+    const interval = setInterval(fetchSharedState, 8000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSharedState();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // Push notification trigger
   const triggerNotification = (notif: InAppNotification) => {
     setNotifications((prev) => [notif, ...prev]);
@@ -212,9 +286,9 @@ export default function App() {
     const targetBet = bets.find((b) => b.id === betId);
     if (!targetBet) return;
 
-    // Prevent duplicate wager if user already has a pending wager on this bet
+    // Prevent duplicate wager if this specific user already has a pending wager on this bet
     const existingUserWager = targetBet.wagers.find(
-      (w) => (w.userId === user.id || w.userId === 'user_current') && w.status === 'pending'
+      (w) => w.userId === user.id && w.status === 'pending'
     );
     if (existingUserWager) {
       triggerNotification({
@@ -295,6 +369,13 @@ export default function App() {
 
     setBets(updatedBets);
 
+    // Sync wager to backend shared database so all other users see it immediately
+    fetch(`/api/bets/${betId}/wager`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wager: newWager, side, amount }),
+    }).catch(() => {});
+
     // Update User Balance & XP
     const newXP = user.xp + Math.round(amount / 5);
     const newLevel = Math.floor(newXP / 500) + 1;
@@ -360,7 +441,7 @@ export default function App() {
         id: user.id,
         name: user.name,
         avatar: user.avatar,
-        isCurrentUser: true,
+        isCurrentUser: false,
       },
       createdAt: new Date().toISOString(),
       startDate: data.startDate,
@@ -377,6 +458,13 @@ export default function App() {
     };
 
     setBets([newBet, ...bets]);
+
+    // Sync newly created showdown to backend so all other users on any device see it
+    fetch('/api/bets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newBet),
+    }).catch(() => {});
 
     // Deduct seed from balance if applicable
     if (seed > 0) {
@@ -455,6 +543,13 @@ export default function App() {
 
     // 1. Update bets state
     setBets((prevBets) => prevBets.map((b) => (b.id === betId ? resolvedBet : b)));
+
+    // Sync resolution to backend so all other users see settled status and winnings
+    fetch(`/api/bets/${betId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcome, resolutionNotes: notes, resolvedBet }),
+    }).catch(() => {});
 
     // 2. Update detail modal bet if viewing
     setDetailModalBet((curr) => (curr?.id === betId ? resolvedBet : curr));
@@ -795,6 +890,13 @@ export default function App() {
 
     setBets((prev) => [newBet, ...prev]);
 
+    // Sync real-world match to backend shared pool
+    fetch('/api/bets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newBet),
+    }).catch(() => {});
+
     triggerNotification({
       id: `notif_${Date.now()}`,
       type: 'community',
@@ -911,6 +1013,13 @@ export default function App() {
       },
     ]);
 
+    // Sync newly created user account to backend
+    fetch('/api/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newUser),
+    }).catch(() => {});
+
     triggerNotification({
       id: `notif_${Date.now()}`,
       type: 'bonus',
@@ -1013,7 +1122,12 @@ export default function App() {
   const pastBets = bets.filter((b) => b.status !== 'active');
 
   const filteredArenaBets = activeBets.filter((bet) => {
-    const matchCat = selectedCategory === 'all' || bet.category === selectedCategory;
+    const matchCat =
+      selectedCategory === 'all'
+        ? true
+        : selectedCategory === 'community'
+        ? bet.creator.id !== 'oracle_ai' || bet.creator.isCurrentUser || bet.creator.id === user.id
+        : bet.category === selectedCategory;
     const matchSearch =
       searchQuery === '' ||
       bet.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1233,6 +1347,7 @@ export default function App() {
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 touch-scroll">
                 {[
                   { id: 'all', label: 'All Duels' },
+                  { id: 'community', label: '👥 User Created Duels' },
                   { id: 'entertainment', label: '🏰 Traitors 2026 & TV' },
                   { id: 'sports', label: '⚽ Sports' },
                   { id: 'gaming', label: '🎮 Gaming & Esports' },
@@ -1308,6 +1423,7 @@ export default function App() {
                     <BetCard
                       key={bet.id}
                       bet={bet}
+                      currentUser={user}
                       onQuickWager={(b, side) => {
                         setWagerModalBet(b);
                         setWagerModalSide(side);
@@ -1336,6 +1452,10 @@ export default function App() {
             bets={bets}
             onOpenCreate={() => setIsCreateOpen(true)}
             onOpenResolve={(b) => setResolveModalBet(b)}
+            onQuickWager={(b, side) => {
+              setWagerModalBet(b);
+              setWagerModalSide(side);
+            }}
             onOpenShare={(b, side, amt) => {
               setShareModalBet(b);
               setShareModalSide(side);

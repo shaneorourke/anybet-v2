@@ -182,14 +182,19 @@ export const BetCard: React.FC<BetCardProps> = ({
 
       {/* Main Content Area */}
       <div className="p-5 flex-1 flex flex-col justify-between">
-        {/* Title & Real World Badge */}
+        {/* Title & Creator / Real World Badge */}
         <div>
-          {bet.isRealWorld && (
+          {bet.isRealWorld ? (
             <div className="flex items-center gap-1.5 text-[10px] font-bold text-sky-400 mb-1">
               <Bot className="w-3 h-3 text-sky-400" />
               <span>Real-World Pro Match · Gemini Grounded</span>
             </div>
-          )}
+          ) : bet.creator && bet.creator.id !== 'oracle_ai' ? (
+            <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-400 mb-1">
+              <Users className="w-3 h-3 text-purple-400" />
+              <span>Community Duel · Created by {currentUser && bet.creator.id === currentUser.id ? `${bet.creator.name} (You)` : bet.creator.name}</span>
+            </div>
+          ) : null}
 
           <h3 
             onClick={() => onViewDetails(bet)}
