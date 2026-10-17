@@ -79,7 +79,22 @@ export default function App() {
       }
       const saved = localStorage.getItem('versus_bets');
       const parsed = saved ? JSON.parse(saved) : [];
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_BETS;
+      const rawBets = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_BETS;
+
+      // Deduplicate pending wagers per user per bet
+      return rawBets.map((bet: Bet) => {
+        const seenUserWagers = new Set<string>();
+        const uniqueWagers = bet.wagers.filter((w) => {
+          if (w.status !== 'pending') return true;
+          const key = `${bet.id}_${w.userId}`;
+          if (seenUserWagers.has(key)) {
+            return false;
+          }
+          seenUserWagers.add(key);
+          return true;
+        });
+        return { ...bet, wagers: uniqueWagers };
+      });
     } catch {
       return INITIAL_BETS;
     }
@@ -196,6 +211,23 @@ export default function App() {
 
     const targetBet = bets.find((b) => b.id === betId);
     if (!targetBet) return;
+
+    // Prevent duplicate wager if user already has a pending wager on this bet
+    const existingUserWager = targetBet.wagers.find(
+      (w) => (w.userId === user.id || w.userId === 'user_current') && w.status === 'pending'
+    );
+    if (existingUserWager) {
+      triggerNotification({
+        id: `notif_${Date.now()}`,
+        type: 'community',
+        title: 'Prediction Already Locked 🔒',
+        message: `You have already placed a prediction on "${targetBet.title}". Duplicate wagers on the same showdown are not allowed.`,
+        timestamp: 'Just now',
+        read: false,
+        betId,
+      });
+      return;
+    }
 
     const timeRemaining = getTimeRemaining(targetBet.endDate);
     if (targetBet.status !== 'active' || timeRemaining.isExpired) {

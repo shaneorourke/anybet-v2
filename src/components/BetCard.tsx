@@ -13,7 +13,7 @@ import {
   ExternalLink,
   Bot
 } from 'lucide-react';
-import { Bet } from '../types';
+import { Bet, UserProfile } from '../types';
 import { calculateOdds, formatCoins, getTimeRemaining, getEventTiming, getBroadcastPlatformInfo } from '../utils/odds';
 import { sound } from '../utils/audio';
 
@@ -25,6 +25,7 @@ interface BetCardProps {
   onAiVerifyOutcome?: (bet: Bet) => Promise<void>;
   onOpenResolve?: (bet: Bet) => void;
   isAiChecking?: boolean;
+  currentUser?: UserProfile;
 }
 
 export const BetCard: React.FC<BetCardProps> = ({
@@ -35,6 +36,7 @@ export const BetCard: React.FC<BetCardProps> = ({
   onAiVerifyOutcome,
   onOpenResolve,
   isAiChecking = false,
+  currentUser,
 }) => {
   const { oddsX, oddsY, percentX, percentY } = calculateOdds(bet.sideX.pool, bet.sideY.pool);
   const timeInfo = getTimeRemaining(bet.endDate);
@@ -51,6 +53,12 @@ export const BetCard: React.FC<BetCardProps> = ({
   const isExpired = timing.isExpired;
   const isActive = bet.status === 'active';
   const canBet = isActive && !isExpired;
+
+  // Single-prediction per duel enforcement: Check if user already predicted on this duel
+  const userWager = currentUser 
+    ? bet.wagers.find((w) => w.userId === currentUser.id && w.status === 'pending') 
+    : undefined;
+  const hasAlreadyBet = !!userWager;
 
   return (
     <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 transition-all duration-200 hover:shadow-xl hover:shadow-slate-950/50">
@@ -252,26 +260,34 @@ export const BetCard: React.FC<BetCardProps> = ({
             {/* Side X - Tap-to-wager on mobile */}
             <div 
               onClick={() => {
-                if (canBet) {
+                if (canBet && !hasAlreadyBet) {
                   sound.playClick();
                   onQuickWager(bet, 'X');
                 } else {
                   onViewDetails(bet);
                 }
               }}
-              className={`bg-slate-950/70 p-2.5 sm:p-3 rounded-xl border transition-all flex flex-col justify-between ${
-                canBet 
-                  ? 'border-slate-800 hover:border-emerald-500/50 cursor-pointer active:scale-[0.98]' 
-                  : 'border-slate-800/60'
+              className={`p-2.5 sm:p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                userWager?.side === 'X'
+                  ? 'bg-emerald-500/15 border-emerald-500 shadow-md shadow-emerald-500/10 cursor-pointer active:scale-[0.98]'
+                  : canBet && !hasAlreadyBet
+                  ? 'bg-slate-950/70 border-slate-800 hover:border-emerald-500/50 cursor-pointer active:scale-[0.98]' 
+                  : 'bg-slate-950/70 border-slate-800/60 cursor-pointer'
               }`}
-              title={canBet ? `Click to wager on ${bet.sideX.name}` : bet.sideX.name}
+              title={hasAlreadyBet ? `Your locked prediction: ${bet.sideX.name}` : canBet ? `Click to wager on ${bet.sideX.name}` : bet.sideX.name}
             >
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="font-semibold text-slate-200 truncate" title={bet.sideX.name}>
                   {bet.sideX.avatarOrFlag && <span className="mr-1">{bet.sideX.avatarOrFlag}</span>}
                   {bet.sideX.name}
                 </span>
-                <span className="text-[10px] uppercase font-bold text-emerald-400">Side X</span>
+                {userWager?.side === 'X' ? (
+                  <span className="text-[9px] uppercase font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">
+                    ✓ Your Pick
+                  </span>
+                ) : (
+                  <span className="text-[10px] uppercase font-bold text-emerald-400">Side X</span>
+                )}
               </div>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="font-mono tabular-nums text-sm sm:text-base font-extrabold text-emerald-400">
@@ -286,26 +302,34 @@ export const BetCard: React.FC<BetCardProps> = ({
             {/* Side Y - Tap-to-wager on mobile */}
             <div 
               onClick={() => {
-                if (canBet) {
+                if (canBet && !hasAlreadyBet) {
                   sound.playClick();
                   onQuickWager(bet, 'Y');
                 } else {
                   onViewDetails(bet);
                 }
               }}
-              className={`bg-slate-950/70 p-2.5 sm:p-3 rounded-xl border transition-all flex flex-col justify-between ${
-                canBet 
-                  ? 'border-slate-800 hover:border-rose-500/50 cursor-pointer active:scale-[0.98]' 
-                  : 'border-slate-800/60'
+              className={`p-2.5 sm:p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                userWager?.side === 'Y'
+                  ? 'bg-rose-500/15 border-rose-500 shadow-md shadow-rose-500/10 cursor-pointer active:scale-[0.98]'
+                  : canBet && !hasAlreadyBet
+                  ? 'bg-slate-950/70 border-slate-800 hover:border-rose-500/50 cursor-pointer active:scale-[0.98]' 
+                  : 'bg-slate-950/70 border-slate-800/60 cursor-pointer'
               }`}
-              title={canBet ? `Click to wager on ${bet.sideY.name}` : bet.sideY.name}
+              title={hasAlreadyBet ? `Your locked prediction: ${bet.sideY.name}` : canBet ? `Click to wager on ${bet.sideY.name}` : bet.sideY.name}
             >
               <div className="flex items-center justify-between gap-1 mb-1">
                 <span className="font-semibold text-slate-200 truncate" title={bet.sideY.name}>
                   {bet.sideY.avatarOrFlag && <span className="mr-1">{bet.sideY.avatarOrFlag}</span>}
                   {bet.sideY.name}
                 </span>
-                <span className="text-[10px] uppercase font-bold text-rose-400">Side Y</span>
+                {userWager?.side === 'Y' ? (
+                  <span className="text-[9px] uppercase font-bold text-rose-300 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/40 shrink-0">
+                    ✓ Your Pick
+                  </span>
+                ) : (
+                  <span className="text-[10px] uppercase font-bold text-rose-400">Side Y</span>
+                )}
               </div>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="font-mono tabular-nums text-sm sm:text-base font-extrabold text-rose-400">
@@ -346,39 +370,73 @@ export const BetCard: React.FC<BetCardProps> = ({
         {/* Action Controls */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
           {canBet ? (
-            <>
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onQuickWager(bet, 'X');
-                }}
-                className="flex-1 min-h-[44px] py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 transition-all active:scale-95 truncate text-center flex items-center justify-center"
-              >
-                Bet {bet.sideX.name.split(' ')[0]} ({oddsX}x)
-              </button>
+            hasAlreadyBet ? (
+              <>
+                <div 
+                  onClick={() => {
+                    sound.playClick();
+                    onViewDetails(bet);
+                  }}
+                  className="flex-1 min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/80 border border-emerald-500/40 hover:border-emerald-500/70 text-xs shadow-inner cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-slate-300 truncate">
+                      Prediction Locked: <strong className={userWager.side === 'X' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{userWager.sideName}</strong>
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-emerald-400 shrink-0 ml-2">
+                    {formatCoins(userWager.amount)} $VS
+                  </span>
+                </div>
 
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onQuickWager(bet, 'Y');
-                }}
-                className="flex-1 min-h-[44px] py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:border-rose-500/60 transition-all active:scale-95 truncate text-center flex items-center justify-center"
-              >
-                Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
-              </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onViewDetails(bet);
+                  }}
+                  className="min-h-[44px] px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
+                  title="View Match Details"
+                >
+                  <BarChart3 className="w-4 h-4 text-slate-400" />
+                  <span className="hidden xs:inline">Details</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onQuickWager(bet, 'X');
+                  }}
+                  className="flex-1 min-h-[44px] py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/60 transition-all active:scale-95 truncate text-center flex items-center justify-center"
+                >
+                  Bet {bet.sideX.name.split(' ')[0]} ({oddsX}x)
+                </button>
 
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onViewDetails(bet);
-                }}
-                className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition-all active:scale-95 flex items-center justify-center shrink-0"
-                title="View Match Stats & Details"
-                aria-label="View Match Details"
-              >
-                <BarChart3 className="w-4 h-4" />
-              </button>
-            </>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onQuickWager(bet, 'Y');
+                  }}
+                  className="flex-1 min-h-[44px] py-2.5 px-3 text-xs sm:text-sm font-bold rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:border-rose-500/60 transition-all active:scale-95 truncate text-center flex items-center justify-center"
+                >
+                  Bet {bet.sideY.name.split(' ')[0]} ({oddsY}x)
+                </button>
+
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onViewDetails(bet);
+                  }}
+                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white transition-all active:scale-95 flex items-center justify-center shrink-0"
+                  title="View Match Stats & Details"
+                  aria-label="View Match Details"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                </button>
+              </>
+            )
           ) : isActive && isExpired ? (
             <>
               {onAiVerifyOutcome && (!bet.lastAiCheck?.concluded || !bet.lastAiCheck.winner) ? (

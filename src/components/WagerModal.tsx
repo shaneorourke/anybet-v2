@@ -7,7 +7,8 @@ import {
   ArrowRight, 
   CheckCircle, 
   Share2,
-  ShieldCheck 
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Bet, UserProfile } from '../types';
@@ -43,6 +44,10 @@ export const WagerModal: React.FC<WagerModalProps> = ({
   const timeInfo = getTimeRemaining(bet.endDate);
   const isExpired = timeInfo.isExpired || bet.status !== 'active';
 
+  // Prevent duplicate bets: Check if user already predicted on this duel
+  const existingWager = bet.wagers.find((w) => w.userId === user.id && w.status === 'pending');
+  const hasAlreadyBet = !!existingWager;
+
   const { oddsX, oddsY } = calculateOdds(bet.sideX.pool, bet.sideY.pool);
   const currentOdds = selectedSide === 'X' ? oddsX : oddsY;
   const currentSideObj = selectedSide === 'X' ? bet.sideX : bet.sideY;
@@ -66,7 +71,7 @@ export const WagerModal: React.FC<WagerModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isExpired || amount <= 0 || amount > user.balance) return;
+    if (hasAlreadyBet || isExpired || amount <= 0 || amount > user.balance) return;
 
     sound.playBetPlaced();
     sound.triggerHaptic();
@@ -124,6 +129,13 @@ export const WagerModal: React.FC<WagerModalProps> = ({
               <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
                 <strong className="block font-bold">🔒 Betting Closed (Deadline Passed)</strong>
                 <span>The scheduled resolution deadline for this duel has concluded. New wagers cannot be placed. Open the match details to inspect outcomes or view settlement.</span>
+              </div>
+            )}
+
+            {hasAlreadyBet && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
+                <strong className="block font-bold">✓ Prediction Already Locked</strong>
+                <span>You have already locked in a prediction ({existingWager?.sideName} - {formatCoins(existingWager?.amount || 0)} $VS) for this showdown. Duplicate predictions are not permitted.</span>
               </div>
             )}
 
@@ -256,16 +268,16 @@ export const WagerModal: React.FC<WagerModalProps> = ({
             {/* Submit Action */}
             <button
               type="submit"
-              disabled={isExpired || amount <= 0 || amount > user.balance}
+              disabled={isExpired || hasAlreadyBet || amount <= 0 || amount > user.balance}
               className={`w-full min-h-[50px] py-3.5 px-4 rounded-xl text-base sm:text-sm font-extrabold transition-all flex items-center justify-center gap-2 shadow-lg ${
-                !isExpired && amount > 0 && amount <= user.balance
+                !isExpired && !hasAlreadyBet && amount > 0 && amount <= user.balance
                   ? selectedSide === 'X'
                     ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/25 active:scale-98'
                     : 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/25 active:scale-98'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
             >
-              <span>{isExpired ? 'Betting Closed for this Event' : `Place ${amount} $VS Wager`}</span>
+              <span>{hasAlreadyBet ? 'Prediction Already Placed' : isExpired ? 'Betting Closed for this Event' : `Place ${amount} $VS Wager`}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
