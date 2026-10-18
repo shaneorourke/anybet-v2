@@ -8,7 +8,8 @@ import {
   CheckCircle, 
   Share2,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Flame
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Bet, UserProfile } from '../types';
@@ -23,6 +24,7 @@ interface WagerModalProps {
   onClose: () => void;
   onConfirmWager: (betId: string, side: 'X' | 'Y', amount: number) => void;
   onOpenShare: (bet: Bet, side: 'X' | 'Y', amount: number) => void;
+  onNavigateToMyWagers?: () => void;
 }
 
 export const WagerModal: React.FC<WagerModalProps> = ({
@@ -33,6 +35,7 @@ export const WagerModal: React.FC<WagerModalProps> = ({
   onClose,
   onConfirmWager,
   onOpenShare,
+  onNavigateToMyWagers,
 }) => {
   if (!isOpen) return null;
 
@@ -296,19 +299,38 @@ export const WagerModal: React.FC<WagerModalProps> = ({
                   {lastWagerInfo?.side === 'X' ? bet.sideX.name : bet.sideY.name}
                 </strong>.
               </p>
+              <p className="text-[11px] text-emerald-400 mt-1.5 font-semibold flex items-center justify-center gap-1">
+                <span>✓ Moved to your My Wagers portfolio</span>
+              </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+              {onNavigateToMyWagers && (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onClose();
+                    onNavigateToMyWagers();
+                  }}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all"
+                >
+                  <Flame className="w-4 h-4 text-slate-950" />
+                  <span>View in My Wagers</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   sound.playClick();
                   onOpenShare(bet, lastWagerInfo!.side, lastWagerInfo!.amount);
                   onClose();
                 }}
-                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all"
+                className={`w-full sm:flex-1 py-3 px-4 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-200 text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  !onNavigateToMyWagers ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950' : ''
+                }`}
               >
                 <Share2 className="w-4 h-4" />
-                <span>Share Prediction Slip</span>
+                <span>Share Slip</span>
               </button>
 
               <button
@@ -316,9 +338,9 @@ export const WagerModal: React.FC<WagerModalProps> = ({
                   sound.playClick();
                   onClose();
                 }}
-                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                className="w-full sm:w-auto px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
               >
-                Close Slip
+                Done
               </button>
             </div>
           </div>

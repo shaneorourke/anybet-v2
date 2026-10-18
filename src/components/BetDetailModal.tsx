@@ -35,6 +35,7 @@ interface BetDetailModalProps {
   onSimulateRefund: (betId: string) => void;
   onAiVerifyOutcome?: (bet: Bet) => Promise<void>;
   isAiChecking?: boolean;
+  onNavigateToMyWagers?: () => void;
 }
 
 export const BetDetailModal: React.FC<BetDetailModalProps> = ({
@@ -48,6 +49,7 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
   onSimulateRefund,
   onAiVerifyOutcome,
   isAiChecking = false,
+  onNavigateToMyWagers,
 }) => {
   if (!isOpen) return null;
 
@@ -601,16 +603,31 @@ export const BetDetailModal: React.FC<BetDetailModalProps> = ({
         <div className="p-3 sm:p-4 border-t border-slate-800 bg-[#0B0E14] flex items-center gap-2 sm:gap-3 shrink-0 pb-[max(14px,env(safe-area-inset-bottom,14px))]">
           {isActive && !timeInfo.isExpired ? (
             userWagers.length > 0 && userWagers.some((w) => w.status === 'pending') ? (
-              <div className="flex-1 flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-900 border border-emerald-500/40 text-xs shadow-inner">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-slate-300">
-                    Your Prediction Locked: <strong className={userWagers[0].side === 'X' ? 'text-emerald-400' : 'text-rose-400'}>{userWagers[0].sideName}</strong>
+              <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-slate-900 border border-emerald-500/40 text-xs shadow-inner">
+                <div className="flex items-center justify-between sm:justify-start gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-slate-300">
+                      Prediction Locked: <strong className={userWagers[0].side === 'X' ? 'text-emerald-400' : 'text-rose-400'}>{userWagers[0].sideName}</strong>
+                    </span>
+                  </div>
+                  <span className="font-mono font-bold text-emerald-400">
+                    {formatCoins(userWagers[0].amount)} $VS
                   </span>
                 </div>
-                <span className="font-mono font-bold text-emerald-400">
-                  {formatCoins(userWagers[0].amount)} $VS
-                </span>
+                {onNavigateToMyWagers && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onClose();
+                      onNavigateToMyWagers();
+                    }}
+                    className="py-1.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                  >
+                    <Flame className="w-3.5 h-3.5" />
+                    <span>View in My Wagers</span>
+                  </button>
+                )}
               </div>
             ) : (
               <>

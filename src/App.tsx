@@ -1197,10 +1197,27 @@ export default function App() {
   };
 
   // Filtering & Sorting for Arena
+  // Filtering & Sorting for Arena (Open Duels)
   const activeBets = bets.filter((b) => b.status === 'active');
   const pastBets = bets.filter((b) => b.status !== 'active');
 
+  // Track duel IDs where current user has placed an active prediction
+  const userPredictedBetIds = new Set(
+    bets
+      .filter((b) =>
+        (b.wagers || []).some(
+          (w) => (w.userId === user.id || w.userId === 'user_current') && w.status === 'pending'
+        )
+      )
+      .map((b) => b.id)
+  );
+
   const filteredArenaBets = activeBets.filter((bet) => {
+    // Exclude duels that the user has already predicted on (they move to My Wagers!)
+    if (userPredictedBetIds.has(bet.id)) {
+      return false;
+    }
+
     const matchCat =
       selectedCategory === 'all'
         ? true
@@ -1222,8 +1239,8 @@ export default function App() {
     return 0;
   });
 
-  // Spotlight match for hero section
-  const spotlightBet = bets.find((b) => b.id === 'bet_1') || bets[0];
+  // Spotlight match for hero section: Only pick from open duels awaiting a prediction!
+  const spotlightBet = sortedArenaBets[0] || null;
 
   return (
     <div className="min-h-screen bg-[#0B0E14] text-slate-100 flex flex-col pb-28 sm:pb-24 md:pb-12 selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -1458,44 +1475,94 @@ export default function App() {
                 <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">
                   Open Head-to-Head Showdowns ({sortedArenaBets.length})
                 </span>
-                <span className="text-xs text-slate-500">
-                  Strictly X vs Y Outcomes
-                </span>
+                <div className="flex items-center gap-3">
+                  {userPredictedBetIds.size > 0 && (
+                    <button
+                      onClick={() => {
+                        sound.playClick();
+                        setCurrentView('my-wagers');
+                      }}
+                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors"
+                      title="View all duels you have predicted on"
+                    >
+                      <Flame className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{userPredictedBetIds.size} predicted duel{userPredictedBetIds.size > 1 ? 's' : ''} in My Wagers →</span>
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-500 hidden sm:inline">
+                    Strictly X vs Y Outcomes
+                  </span>
+                </div>
               </div>
 
               {sortedArenaBets.length === 0 ? (
-                <div className="p-12 rounded-3xl bg-slate-900/60 border border-slate-800 text-center max-w-xl mx-auto space-y-4 shadow-xl">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
-                    <Sparkles className="w-8 h-8 animate-pulse" />
+                userPredictedBetIds.size > 0 && selectedCategory === 'all' && !searchQuery ? (
+                  <div className="p-10 sm:p-12 rounded-3xl bg-slate-900/60 border border-slate-800 text-center max-w-xl mx-auto space-y-4 shadow-xl">
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
+                      <Flame className="w-8 h-8 text-amber-400 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">All Open Duels Predicted! 🎯</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        You have predictions placed on {userPredictedBetIds.size} duel{userPredictedBetIds.size > 1 ? 's' : ''}. They have moved to your My Wagers portfolio where you can track live outcomes and payouts!
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setCurrentView('my-wagers');
+                        }}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                      >
+                        <Flame className="w-4 h-4 text-slate-950" />
+                        <span>View My Wagers ({userPredictedBetIds.size})</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setIsCreateOpen(true);
+                        }}
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
+                      >
+                        + Create New Duel
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">The Arena is Ready for Real-World Duels</h3>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      Celebrity Traitors UK 2026 is airing right now on BBC One & iPlayer! Scan Gemini to discover who will be murdered in the turret or banished at Claudia's Round Table tonight, or explore Champions League & esports showdowns.
-                    </p>
+                ) : (
+                  <div className="p-12 rounded-3xl bg-slate-900/60 border border-slate-800 text-center max-w-xl mx-auto space-y-4 shadow-xl">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
+                      <Sparkles className="w-8 h-8 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">The Arena is Ready for Real-World Duels</h3>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Celebrity Traitors UK 2026 is airing right now on BBC One & iPlayer! Scan Gemini to discover who will be murdered in the turret or banished at Claudia's Round Table tonight, or explore Champions League & esports showdowns.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setIsAiDiscoverOpen(true);
+                        }}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-sky-600 hover:from-emerald-400 hover:to-sky-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>🏰 Scan Celebrity Traitors 2026 Bets</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setIsCreateOpen(true);
+                        }}
+                        className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
+                      >
+                        + Create Custom Duel
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        setIsAiDiscoverOpen(true);
-                      }}
-                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-sky-600 hover:from-emerald-400 hover:to-sky-500 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>🏰 Scan Celebrity Traitors 2026 Bets</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        setIsCreateOpen(true);
-                      }}
-                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
-                    >
-                      + Create Custom Duel
-                    </button>
-                  </div>
-                </div>
+                )
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {sortedArenaBets.map((bet) => (
@@ -1616,6 +1683,7 @@ export default function App() {
             setShareModalSide(side);
             setShareModalAmount(amt);
           }}
+          onNavigateToMyWagers={() => setCurrentView('my-wagers')}
         />
       )}
 
@@ -1642,6 +1710,7 @@ export default function App() {
           onSimulateRefund={handleSimulateRefund}
           onAiVerifyOutcome={handleAiVerifyOutcome}
           isAiChecking={isAiChecking}
+          onNavigateToMyWagers={() => setCurrentView('my-wagers')}
         />
       )}
 
