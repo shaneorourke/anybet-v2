@@ -255,6 +255,15 @@ app.post('/api/accounts', (req: Request, res: Response) => {
   res.json({ success: true, user: newUser });
 });
 
+// 6.5 Delete user account across all devices
+app.delete('/api/accounts/:id', (req: Request, res: Response) => {
+  const userId = req.params.id;
+  store.users = store.users.filter((u: any) => u.id !== userId);
+  store.leaderboard = store.leaderboard.filter((l: any) => l.id !== userId);
+  saveStore(store);
+  res.json({ success: true, deletedId: userId });
+});
+
 // 7. Community wagers feed (all predictions made by all users)
 app.get('/api/community-wagers', (_req: Request, res: Response) => {
   const allWagers: any[] = [];
@@ -287,7 +296,7 @@ const ai = new GoogleGenAI({
  * Helper: Resilient structured Gemini call with model fallback
  * Prioritizes fast, available flash-lite model, handling demand spikes smoothly.
  */
-async function callGeminiStructured<T>(prompt: string, schema: any): Promise<T> {
+async function callGeminiStructured<T>(prompt: string, schema: any, options?: { temperature?: number }): Promise<T> {
   const models = ['gemini-3.1-flash-lite', 'gemini-3.8-flash'];
   let lastError: any = null;
 
@@ -299,6 +308,7 @@ async function callGeminiStructured<T>(prompt: string, schema: any): Promise<T> 
         config: {
           responseMimeType: 'application/json',
           responseSchema: schema,
+          temperature: options?.temperature !== undefined ? options.temperature : 0.7,
         },
       });
 
@@ -518,47 +528,68 @@ Return a JSON array of 4 showdown objects.`;
  * Endpoint 1.5: AI Duel Co-Pilot (Generate a specific duel directly from user prompt / keywords)
  */
 app.post('/api/gemini/generate-duel', async (req: Request, res: Response) => {
+  const { prompt: userPrompt, category, avoidTitles = [], avoidSides = [], rerollCount = 0 } = req.body;
+
+  if (!userPrompt || typeof userPrompt !== 'string') {
+    return res.status(400).json({ success: false, error: 'Prompt is required' });
+  }
+
+  const count = Number(rerollCount || 0);
+  const now = new Date();
+  const dateFormatted = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Angle themes based on re-roll count to force genuinely different perspectives
+  const angleArchetypes = [
+    'PRIMARY SHOWDOWN: Head-to-Head Winner or First Key Elimination',
+    'ALTERNATIVE COMPETITORS: Clash of two different contenders or underdogs',
+    'SPECIFIC EVENT MILESTONE: Round Table Banishment / Turret Murder / Clean Sheet / First Goal',
+    'TACTICAL / STRATEGY SUB-PLOT: Shield Quest / Role Reveal / Over-Under Total Score',
+    'DRAMATIC CLIMAX: Final Elimination / Championship Decider / Unmasking Showdown',
+  ];
+  const chosenAngleArchetype = angleArchetypes[count % angleArchetypes.length];
+
+  let searchFacts = '';
   try {
-    const { prompt: userPrompt, category } = req.body;
-
-    if (!userPrompt || typeof userPrompt !== 'string') {
-      return res.status(400).json({ success: false, error: 'Prompt is required' });
+    const searchRes = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: `Find real-world participants, match details, kickoff/broadcast time, and official broadcaster for: "${userPrompt.trim()}". Today is ${dateFormatted}. Give concise verified factual details.`,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+    if (searchRes.text) {
+      searchFacts = `\nREAL-WORLD SEARCH GROUNDING FACTS:\n${searchRes.text.slice(0, 1000)}\n`;
     }
+  } catch (err: any) {
+    console.warn('Search grounding in generate-duel skipped:', err?.message?.slice(0, 60));
+  }
 
-    const now = new Date();
-    const dateFormatted = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const avoidSection = Array.isArray(avoidTitles) && avoidTitles.length > 0
+    ? `\nRE-ROLL DIRECTIVE (CRITICAL - DO NOT REPEAT):\nThe user is requesting re-roll iteration #${count + 1}.\nDO NOT GENERATE OR SUGGEST ANY OF THESE PREVIOUSLY USED DUELS/TITLES:\n${avoidTitles.map((t: string) => `- "${t}"`).join('\n')}\n${Array.isArray(avoidSides) && avoidSides.length > 0 ? `AVOID RE-USING THESE EXACT SIDES/COMPETITORS IF POSSIBLE: ${avoidSides.slice(0, 8).join(', ')}\n` : ''}You MUST invent or select a completely DIFFERENT head-to-head angle or competitors.\n`
+    : '';
 
-    let searchFacts = '';
-    try {
-      const searchRes = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Find real-world participants, match details, kickoff/broadcast time, and official broadcaster for: "${userPrompt.trim()}". Today is ${dateFormatted}. Give concise verified factual details.`,
-        config: {
-          tools: [{ googleSearch: {} }],
-        },
-      });
-      if (searchRes.text) {
-        searchFacts = `\nREAL-WORLD SEARCH GROUNDING FACTS:\n${searchRes.text.slice(0, 1000)}\n`;
-      }
-    } catch (err: any) {
-      console.warn('Search grounding in generate-duel skipped:', err?.message?.slice(0, 60));
-    }
-
-    const systemPrompt = `You are the AnyBet AI Duel Co-Pilot.
+  const systemPrompt = `You are the AnyBet AI Duel Co-Pilot.
 Today's Date: ${dateFormatted}.
-The user has an idea or keywords for a head-to-head prediction duel:
+The user has provided this idea or keywords for a head-to-head prediction duel:
 "${userPrompt.trim()}"
 
+TARGET ANGLE ARCHETYPE FOR THIS ROLL:
+>>> ${chosenAngleArchetype} <<<
+
+${avoidSection}
 ${searchFacts}
 
-Context & Guidelines:
+Context & Knowledge Base:
 - If this relates to "The Celebrity Traitors UK 2026":
   Series 2 is currently airing on BBC One and BBC iPlayer.
-  Host: Claudia Winkleman.
+  Host: Claudia Winkleman. Castle: Ardross Castle.
   Traitors: Maya Jama, James Acaster.
-  Ep 3 Banished: Richard E. Grant.
-  Ep 4 Murdered: Bella Ramsey. Ep 4 Banished: Julie Hesmondhalgh.
-  Remaining Faithfuls: Michael Sheen, Joe Lycett, Romesh Ranganathan, Miranda Hart, James Blunt, Professor Hannah Fry, Rob Beckett, etc.
+  Contenders/Celebrities: Michael Sheen, Bella Ramsey, Richard E. Grant, Joe Lycett, Romesh Ranganathan, Miranda Hart, James Blunt, Professor Hannah Fry, Rob Beckett, Julie Hesmondhalgh.
+  Angles to alternate on re-rolls:
+  * Turret Murder victim (e.g. Michael Sheen vs Bella Ramsey)
+  * Round Table Traitor banishment (e.g. Richard E. Grant vs James Acaster, or Joe Lycett vs Romesh Ranganathan)
+  * Final Traitor unmasking (Maya Jama vs James Acaster)
+  * Shield Mission winner (Professor Hannah Fry vs Miranda Hart)
   Broadcaster: "BBC iPlayer & BBC One"
   Stream URL: "https://www.bbc.co.uk/iplayer"
 - If football (Premier League / Champions League):
@@ -566,10 +597,11 @@ Context & Guidelines:
   Stream URL: "https://www.skysports.com" or "https://www.premierleague.com"
 - If combat sports (UFC / Boxing):
   Broadcaster: "TNT Sports & ESPN+" or "DAZN"
+  Stream URL: "https://www.espn.com/mma"
 - If CS2 / esports:
   Broadcaster: "Twitch (BLAST Premier)" or "Twitch (ESL)"
   Stream URL: "https://www.twitch.tv"
-- Side X and Side Y must be clear, competing binary sides (e.g. "Bella Ramsey (Murdered)" vs "Michael Sheen (Survives)", "Arsenal" vs "Chelsea").
+- Side X and Side Y must be clear, competing binary sides with recognizable competitor names.
 
 Generate a complete, ready-to-wager duel object.
 Return JSON with:
@@ -580,10 +612,11 @@ Return JSON with:
 - rules: clear, unambiguous 1-2 sentence victory verification rules
 - startHoursFromNow: integer hours from now until event/match begins (0 for starting now / in progress, 8 for tonight, 24 for tomorrow, etc.)
 - deadlineHours: realistic integer hours until completion (10 for tonight, 26 for tomorrow, etc.)
-- broadcastPlatform: authentic broadcaster/network (e.g. "BBC iPlayer & BBC One", "Sky Sports & Peacock", "Twitch", "YouTube Live", "TNT Sports & ESPN+")
-- streamUrl: valid website or stream link (e.g. "https://www.bbc.co.uk/iplayer", "https://www.skysports.com", "https://www.twitch.tv")
-- rationale: short explanation of how this reflects the user's prompt.`;
+- broadcastPlatform: authentic broadcaster/network
+- streamUrl: valid website or stream link
+- rationale: short explanation of how this represents a fresh, distinct angle.`;
 
+  try {
     const duel = await callGeminiStructured<any>(systemPrompt, {
       type: Type.OBJECT,
       properties: {
@@ -599,28 +632,249 @@ Return JSON with:
         rationale: { type: Type.STRING },
       },
       required: ['title', 'sideXName', 'sideYName', 'category', 'rules', 'deadlineHours'],
+    }, {
+      temperature: Math.min(1.2, 0.75 + (count * 0.1)),
     });
 
-    res.json({ success: true, duel });
+    // Check if Gemini repeated an avoided title; if so, trigger fallback selection
+    const isRepeated = avoidTitles.some((t: string) => 
+      t && duel.title && t.toLowerCase().trim() === duel.title.toLowerCase().trim()
+    );
+
+    if (isRepeated) {
+      throw new Error('Gemini produced repeated title on re-roll, switching to varied fallback pool');
+    }
+
+    return res.json({ success: true, duel, rerollCount: count });
   } catch (error: any) {
-    console.error('Error in generate-duel co-pilot:', error);
-    const isTraitors = req.body.prompt && /traitor|celebrity|bbc|claudia/i.test(req.body.prompt);
+    console.warn('generate-duel using rich fallback catalog:', error?.message?.slice(0, 80));
+
+    // Diverse fallback catalogue across all domains & Traitors angles
+    const fallbackCatalog = [
+      // Traitors Angles
+      {
+        keys: ['traitor', 'celebrity', 'claudia', 'bbc', 'murder', 'banish'],
+        options: [
+          {
+            title: 'Celebrity Traitors UK 2026: Turret Murder — Michael Sheen vs Bella Ramsey',
+            sideXName: 'Michael Sheen (Murdered in Turret)',
+            sideYName: 'Bella Ramsey (Survives to Breakfast)',
+            category: 'entertainment',
+            rules: 'Official BBC One broadcast confirmation of which celebrity is murdered by Traitors before breakfast.',
+            startHoursFromNow: 8,
+            deadlineHours: 10,
+            broadcastPlatform: 'BBC iPlayer & BBC One',
+            streamUrl: 'https://www.bbc.co.uk/iplayer',
+            rationale: 'Angle: Turret Murder Target — The Traitors strike in Claudia Winkleman\'s castle tower.',
+          },
+          {
+            title: 'Celebrity Traitors UK 2026: Round Table Banishment — Joe Lycett vs Romesh Ranganathan',
+            sideXName: 'Joe Lycett (Banished by Vote)',
+            sideYName: 'Romesh Ranganathan (Survives Round Table)',
+            category: 'entertainment',
+            rules: 'Celebrity receiving the most banishment slate votes at the Round Table in Episode 4.',
+            startHoursFromNow: 8,
+            deadlineHours: 10,
+            broadcastPlatform: 'BBC iPlayer & BBC One',
+            streamUrl: 'https://www.bbc.co.uk/iplayer',
+            rationale: 'Angle: Round Table Heated Slate Vote — Tension boils over between Joe and Romesh.',
+          },
+          {
+            title: 'Celebrity Traitors UK 2026: First Traitor Unmasked — Maya Jama vs James Acaster',
+            sideXName: 'Maya Jama (First Exposed Traitor)',
+            sideYName: 'James Acaster (First Exposed Traitor)',
+            category: 'entertainment',
+            rules: 'First official cloaked Traitor unmasked and voted out by the Faithful group.',
+            startHoursFromNow: 12,
+            deadlineHours: 16,
+            broadcastPlatform: 'BBC iPlayer & BBC One',
+            streamUrl: 'https://www.bbc.co.uk/iplayer',
+            rationale: 'Angle: Cloaked Traitor Unmasking — Maya Jama vs James Acaster.',
+          },
+          {
+            title: 'Celebrity Traitors UK 2026: Castle Mission Shield Duel — Prof Hannah Fry vs Miranda Hart',
+            sideXName: 'Professor Hannah Fry (Wins Shield)',
+            sideYName: 'Miranda Hart (Wins Shield)',
+            category: 'entertainment',
+            rules: 'Contestant who claims the protective Shield armory pass in the Loch Glass challenge.',
+            startHoursFromNow: 7,
+            deadlineHours: 9,
+            broadcastPlatform: 'BBC iPlayer & BBC One',
+            streamUrl: 'https://www.bbc.co.uk/iplayer',
+            rationale: 'Angle: Outdoor Shield Mission — Physical and intellectual puzzle race for immunity.',
+          },
+          {
+            title: 'Celebrity Traitors UK 2026: Round Table Clash — Richard E. Grant vs James Acaster',
+            sideXName: 'Richard E. Grant (Banished)',
+            sideYName: 'James Acaster (Survives)',
+            category: 'entertainment',
+            rules: 'Official Round Table banishment reveal at the Episode 3 conclusion.',
+            startHoursFromNow: 2,
+            deadlineHours: 4,
+            broadcastPlatform: 'BBC iPlayer & BBC One',
+            streamUrl: 'https://www.bbc.co.uk/iplayer',
+            rationale: 'Angle: Episode 3 Dramatic Banishment Vote.',
+          },
+          {
+            title: 'Celebrity Traitors UK 2026: Faithful Solidarity — Rob Beckett vs James Blunt',
+            sideXName: 'Rob Beckett (Survives Ep 4)',
+            sideYName: 'James Blunt (Survives Ep 4)',
+            category: 'entertainment',
+            rules: 'Official BBC One broadcast confirmation of which celebrity avoids both murder and banishment.',
+            startHoursFromNow: 8,
+            deadlineHours: 10,
+            broadcastPlatform: 'BBC iPlayer & BBC One',
+            streamUrl: 'https://www.bbc.co.uk/iplayer',
+            rationale: 'Angle: Faithful Endurance Challenge.',
+          },
+        ],
+      },
+      // Sports & Combat Angles
+      {
+        keys: ['sport', 'football', 'soccer', 'premier', 'league', 'derby', 'arsenal', 'chelsea', 'city', 'ufc', 'boxing'],
+        options: [
+          {
+            title: 'Premier League Title Derby: Arsenal vs Manchester City',
+            sideXName: 'Arsenal',
+            sideYName: 'Manchester City',
+            category: 'sports',
+            rules: 'Official 90-minute regular play whistle result verified by Premier League referee report.',
+            startHoursFromNow: 20,
+            deadlineHours: 24,
+            broadcastPlatform: 'Sky Sports & Peacock',
+            streamUrl: 'https://www.skysports.com',
+            rationale: 'Angle: Headline Premier League Championship Derby.',
+          },
+          {
+            title: 'Champions League Giant Clash: Real Madrid vs Liverpool FC',
+            sideXName: 'Real Madrid',
+            sideYName: 'Liverpool FC',
+            category: 'sports',
+            rules: 'Official UEFA match result after full time.',
+            startHoursFromNow: 26,
+            deadlineHours: 30,
+            broadcastPlatform: 'TNT Sports & Paramount+',
+            streamUrl: 'https://www.tntsports.co.uk',
+            rationale: 'Angle: European Champions League Blockbuster.',
+          },
+          {
+            title: 'Golden Boot Scoring Race: Erling Haaland vs Kylian Mbappé',
+            sideXName: 'Erling Haaland (Scores)',
+            sideYName: 'Kylian Mbappé (Scores)',
+            category: 'sports',
+            rules: 'First player to score an official goal in their respective upcoming weekend fixture.',
+            startHoursFromNow: 18,
+            deadlineHours: 28,
+            broadcastPlatform: 'Sky Sports & DAZN',
+            streamUrl: 'https://www.skysports.com',
+            rationale: 'Angle: Individual Player Goalscoring Showdown.',
+          },
+          {
+            title: 'UFC Welterweight Championship: Leon Edwards vs Colby Covington',
+            sideXName: 'Leon Edwards',
+            sideYName: 'Colby Covington',
+            category: 'sports',
+            rules: 'Official Bruce Buffer Octagon decision or stoppage winner.',
+            startHoursFromNow: 30,
+            deadlineHours: 34,
+            broadcastPlatform: 'TNT Sports & ESPN+ PPV',
+            streamUrl: 'https://www.espn.com/mma',
+            rationale: 'Angle: Five-Round Championship Main Event.',
+          },
+        ],
+      },
+      // Tech & AI Angles
+      {
+        keys: ['tech', 'ai', 'tesla', 'byd', 'apple', 'nvidia', 'google', 'openai', 'meta'],
+        options: [
+          {
+            title: 'Global EV Deliveries Race: Tesla vs BYD Quarterly Volume',
+            sideXName: 'Tesla (Delivers More)',
+            sideYName: 'BYD (Delivers More)',
+            category: 'tech',
+            rules: 'Quarterly official investor relation deliveries report published by each company.',
+            startHoursFromNow: 48,
+            deadlineHours: 72,
+            broadcastPlatform: 'Bloomberg & Reuters',
+            streamUrl: 'https://www.bloomberg.com',
+            rationale: 'Angle: Quarterly Global Electric Vehicle Deliveries Milestone.',
+          },
+          {
+            title: 'Frontier AI Reasoning Benchmark: Google Gemini 3 Ultra vs OpenAI GPT-5',
+            sideXName: 'Gemini 3 Ultra (Higher Score)',
+            sideYName: 'GPT-5 (Higher Score)',
+            category: 'tech',
+            rules: 'Official LMSYS Chatbot Arena or SWE-Bench verified public evaluation leaderboards.',
+            startHoursFromNow: 36,
+            deadlineHours: 60,
+            broadcastPlatform: 'LMSYS & arXiv',
+            streamUrl: 'https://chat.lmsys.org',
+            rationale: 'Angle: Frontier LLM Reasoning & Benchmark Showdown.',
+          },
+          {
+            title: 'AI Hardware Market Cap Duel: NVIDIA vs Microsoft Valuation',
+            sideXName: 'NVIDIA ($3.6T+ Cap)',
+            sideYName: 'Microsoft ($3.6T+ Cap)',
+            category: 'tech',
+            rules: 'NASDAQ closing bell market capitalization figures on Friday.',
+            startHoursFromNow: 24,
+            deadlineHours: 32,
+            broadcastPlatform: 'CNBC & NYSE',
+            streamUrl: 'https://www.cnbc.com',
+            rationale: 'Angle: Market Capitalization Milestone Race.',
+          },
+        ],
+      },
+      // Gaming & Esports Angles
+      {
+        keys: ['gaming', 'game', 'esport', 'cs2', 'blast', 'faze', 'navi', 't1', 'lol', 'twitch'],
+        options: [
+          {
+            title: 'BLAST Premier CS2 Grand Finals: FaZe Clan vs Natus Vincere (NaVi)',
+            sideXName: 'FaZe Clan',
+            sideYName: 'Natus Vincere',
+            category: 'gaming',
+            rules: 'Official Best-of-3 tournament referee match score on HLTV.',
+            startHoursFromNow: 14,
+            deadlineHours: 18,
+            broadcastPlatform: 'Twitch (BLAST Premier)',
+            streamUrl: 'https://www.twitch.tv/blastpremier',
+            rationale: 'Angle: Tier 1 Counter-Strike 2 Trophy Final.',
+          },
+          {
+            title: 'LCK Korean Esports Derby: T1 vs Gen.G Telecom War',
+            sideXName: 'T1 (Faker)',
+            sideYName: 'Gen.G (Chovy)',
+            category: 'gaming',
+            rules: 'Official Riot Games match result broadcast on LoL Esports Twitch.',
+            startHoursFromNow: 10,
+            deadlineHours: 14,
+            broadcastPlatform: 'Twitch (LCK)',
+            streamUrl: 'https://www.twitch.tv/lck',
+            rationale: 'Angle: League of Legends Iconic Telecom War.',
+          },
+        ],
+      },
+    ];
+
+    const promptLower = userPrompt.toLowerCase();
+    const matchedGroup = fallbackCatalog.find((group) =>
+      group.keys.some((k) => promptLower.includes(k))
+    ) || fallbackCatalog[0];
+
+    // Filter out options whose titles are in avoidTitles
+    const eligibleOptions = matchedGroup.options.filter((opt) =>
+      !avoidTitles.some((t: string) => t && opt.title.toLowerCase().includes(t.toLowerCase().slice(0, 25)))
+    );
+
+    const chosenList = eligibleOptions.length > 0 ? eligibleOptions : matchedGroup.options;
+    const pickedDuel = chosenList[count % chosenList.length];
+
     res.json({
       success: true,
-      duel: {
-        title: req.body.prompt || 'Head-to-Head Showdown',
-        sideXName: isTraitors ? 'Michael Sheen (Murdered)' : 'Contender X',
-        sideYName: isTraitors ? 'Bella Ramsey (Survives)' : 'Contender Y',
-        category: req.body.category || (isTraitors ? 'entertainment' : 'sports'),
-        rules: isTraitors 
-          ? 'Official BBC One broadcast confirmation of turret murder before breakfast.'
-          : 'Winner decided by official match referee or broadcast outcome.',
-        startHoursFromNow: isTraitors ? 8 : 4,
-        deadlineHours: isTraitors ? 10 : 6,
-        broadcastPlatform: isTraitors ? 'BBC iPlayer & BBC One' : 'Sky Sports & Live Broadcast',
-        streamUrl: isTraitors ? 'https://www.bbc.co.uk/iplayer' : 'https://www.skysports.com',
-        rationale: 'Generated duel matching user keywords with authentic broadcast and kickoff schedule.',
-      },
+      duel: pickedDuel,
+      rerollCount: count,
+      isFallback: true,
     });
   }
 });

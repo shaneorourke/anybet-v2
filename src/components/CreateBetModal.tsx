@@ -10,7 +10,10 @@ import {
   Coins,
   Tv,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Dices,
+  RotateCcw,
+  Shuffle
 } from 'lucide-react';
 import { Category, UserProfile } from '../types';
 import { sound } from '../utils/audio';
@@ -95,6 +98,19 @@ const PRESETS = [
   },
 ];
 
+interface GeneratedDraft {
+  title: string;
+  sideXName: string;
+  sideYName: string;
+  category: Category;
+  rules: string;
+  startHours: number;
+  deadlineHours: number;
+  streamPlatform: string;
+  streamUrl: string;
+  rationale?: string;
+}
+
 export const CreateBetModal: React.FC<CreateBetModalProps> = ({
   user,
   isOpen,
@@ -117,33 +133,88 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
   const [aiSuccessMessage, setAiSuccessMessage] = useState<string | null>(null);
 
-  // AI Co-Pilot: Generate full duel from user keywords or concept prompt
-  const handleGenerateDuelWithAi = async (e?: React.FormEvent) => {
+  const [drafts, setDrafts] = useState<GeneratedDraft[]>([]);
+  const [currentDraftIdx, setCurrentDraftIdx] = useState<number>(-1);
+
+  const loadDraft = (draft: GeneratedDraft, idx: number) => {
+    sound.playClick();
+    setSideXName(draft.sideXName);
+    setSideYName(draft.sideYName);
+    setTitle(draft.title);
+    setCategory(draft.category);
+    setRules(draft.rules);
+    setStartHours(draft.startHours);
+    setDeadlineHours(draft.deadlineHours);
+    setStreamPlatform(draft.streamPlatform || '');
+    setStreamUrl(draft.streamUrl || '');
+    setCurrentDraftIdx(idx);
+    setAiSuccessMessage(draft.rationale || `Angle #${idx + 1} loaded`);
+  };
+
+  // AI Co-Pilot: Generate or re-roll full duel from user keywords or concept prompt
+  const handleGenerateDuelWithAi = async (e?: React.FormEvent, forceReroll: boolean = false) => {
     if (e) e.preventDefault();
-    if (!aiPrompt.trim()) return;
+    const promptText = aiPrompt.trim() || title.trim() || 'Celebrity Traitors UK 2026';
+    if (!promptText) return;
 
     setIsGeneratingAi(true);
-    setAiSuccessMessage(null);
     sound.playClick();
+
+    // If user clicks Auto-Draft but drafts already exist, or explicitly clicks Re-Roll, treat as next angle
+    const isNextRoll = forceReroll || drafts.length > 0;
+    const nextCount = isNextRoll ? drafts.length : 0;
+    const avoidTitles = Array.from(
+      new Set([...drafts.map((d) => d.title), title].filter(Boolean))
+    );
+    const avoidSides = Array.from(
+      new Set([...drafts.flatMap((d) => [d.sideXName, d.sideYName]), sideXName, sideYName].filter(Boolean))
+    );
 
     try {
       const res = await fetch('/api/gemini/generate-duel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: aiPrompt.trim(), category }),
+        body: JSON.stringify({
+          prompt: promptText,
+          category,
+          avoidTitles,
+          avoidSides,
+          rerollCount: nextCount,
+          seed: Date.now().toString(),
+        }),
       });
       const data = await res.json();
       if (data.success && data.duel) {
-        setSideXName(data.duel.sideXName || 'Competitor X');
-        setSideYName(data.duel.sideYName || 'Competitor Y');
-        setTitle(data.duel.title || `${data.duel.sideXName} vs ${data.duel.sideYName}`);
-        if (data.duel.category) setCategory(data.duel.category as Category);
-        if (data.duel.rules) setRules(data.duel.rules);
-        if (data.duel.startHoursFromNow !== undefined) setStartHours(data.duel.startHoursFromNow);
-        if (data.duel.deadlineHours) setDeadlineHours(data.duel.deadlineHours);
-        if (data.duel.broadcastPlatform) setStreamPlatform(data.duel.broadcastPlatform);
-        if (data.duel.streamUrl) setStreamUrl(data.duel.streamUrl);
-        setAiSuccessMessage(data.duel.rationale || 'Duel populated with verified real-world context & broadcast!');
+        const newDraft: GeneratedDraft = {
+          title: data.duel.title || `${data.duel.sideXName} vs ${data.duel.sideYName}`,
+          sideXName: data.duel.sideXName || 'Competitor X',
+          sideYName: data.duel.sideYName || 'Competitor Y',
+          category: (data.duel.category as Category) || category,
+          rules: data.duel.rules || 'Official match referee whistle or broadcast confirmation.',
+          startHours: data.duel.startHoursFromNow !== undefined ? data.duel.startHoursFromNow : 8,
+          deadlineHours: data.duel.deadlineHours || 10,
+          streamPlatform: data.duel.broadcastPlatform || '',
+          streamUrl: data.duel.streamUrl || '',
+          rationale: data.duel.rationale || `New distinct angle #${nextCount + 1}`,
+        };
+
+        const updatedDrafts = [...drafts, newDraft];
+        setDrafts(updatedDrafts);
+        setSideXName(newDraft.sideXName);
+        setSideYName(newDraft.sideYName);
+        setTitle(newDraft.title);
+        setCategory(newDraft.category);
+        setRules(newDraft.rules);
+        setStartHours(newDraft.startHours);
+        setDeadlineHours(newDraft.deadlineHours);
+        setStreamPlatform(newDraft.streamPlatform);
+        setStreamUrl(newDraft.streamUrl);
+        setCurrentDraftIdx(updatedDrafts.length - 1);
+        setAiSuccessMessage(
+          updatedDrafts.length > 1
+            ? `🎲 Re-rolled Angle #${updatedDrafts.length}: ${newDraft.rationale || 'Fresh alternative matchup generated!'}`
+            : (newDraft.rationale || 'Duel populated with verified real-world context & broadcast!')
+        );
         sound.playWin();
       }
     } catch (err) {
@@ -244,44 +315,109 @@ export const CreateBetModal: React.FC<CreateBetModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 overflow-y-auto space-y-4 sm:space-y-5 flex-1 pb-[max(20px,env(safe-area-inset-bottom,20px))]">
-          {/* AI Co-Pilot: Auto-Draft from Keywords */}
-          <div className="p-3.5 rounded-xl bg-gradient-to-r from-sky-950/60 to-slate-900 border border-sky-500/30 space-y-2">
+          {/* AI Co-Pilot: Auto-Draft & Re-Roll */}
+          <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Co-Pilot: Draft Duel with Custom Keywords</span>
+                <span>AI Co-Pilot: Instant Auto-Draft & Re-Roll</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">Google Gemini</span>
+              {drafts.length > 0 && (
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {currentDraftIdx + 1} of {drafts.length} angle{drafts.length > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
                 type="text"
-                placeholder="e.g. Traitors Ep 4 turret murder, or UFC Pereira vs Ankalaev..."
+                placeholder="Keywords (e.g. Traitors Ep 4, UFC Edwards vs Covington, Tesla vs BYD)..."
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    handleGenerateDuelWithAi();
+                    handleGenerateDuelWithAi(undefined, drafts.length > 0);
                   }
                 }}
-                className="flex-1 h-9 px-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                className="flex-1 h-10 px-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
               />
-              <button
-                type="button"
-                onClick={() => handleGenerateDuelWithAi()}
-                disabled={isGeneratingAi || !aiPrompt.trim()}
-                className="h-9 px-3.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
-                <span>{isGeneratingAi ? 'Drafting...' : 'Auto-Draft'}</span>
-              </button>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDuelWithAi(undefined, drafts.length > 0)}
+                  disabled={isGeneratingAi || (!aiPrompt.trim() && !title.trim())}
+                  className="flex-1 sm:flex-none h-10 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap shadow-sm shadow-sky-500/20"
+                  title="Generate or re-roll a head-to-head duel from your keywords"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                  <span>{isGeneratingAi ? 'Drafting...' : drafts.length > 0 ? 'Generate Next' : 'Auto-Draft'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDuelWithAi(undefined, true)}
+                  disabled={isGeneratingAi || (!aiPrompt.trim() && !title.trim())}
+                  className="flex-1 sm:flex-none h-10 px-3.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                  title="Generate a completely different matchup or outcome for these keywords"
+                >
+                  <Dices className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                  <span>Re-Roll Angle</span>
+                </button>
+              </div>
             </div>
 
+            {/* Angle Navigator: Cycle back and forth between previous rolls */}
+            {drafts.length > 1 && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-800/80 text-xs">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={currentDraftIdx <= 0}
+                    onClick={() => loadDraft(drafts[currentDraftIdx - 1], currentDraftIdx - 1)}
+                    className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-semibold transition-colors"
+                  >
+                    ← Prev Angle
+                  </button>
+                  <span className="font-semibold text-slate-300 text-xs">
+                    Angle {currentDraftIdx + 1} of {drafts.length}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentDraftIdx >= drafts.length - 1}
+                    onClick={() => loadDraft(drafts[currentDraftIdx + 1], currentDraftIdx + 1)}
+                    className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-semibold transition-colors"
+                  >
+                    Next Angle →
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDuelWithAi(undefined, true)}
+                  disabled={isGeneratingAi}
+                  className="text-purple-400 hover:text-purple-300 font-bold text-xs flex items-center gap-1 transition-colors"
+                >
+                  <Dices className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                  <span>Re-Roll Fresh</span>
+                </button>
+              </div>
+            )}
+
             {aiSuccessMessage && (
-              <div className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
-                ✓ {aiSuccessMessage}
+              <div className="flex items-center justify-between gap-2 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg">
+                <span className="truncate">✓ {aiSuccessMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDuelWithAi(undefined, true)}
+                  disabled={isGeneratingAi}
+                  className="text-emerald-400 hover:text-white font-bold underline shrink-0 flex items-center gap-1 text-[11px]"
+                >
+                  <Dices className="w-3 h-3" />
+                  <span>Re-roll another</span>
+                </button>
               </div>
             )}
           </div>

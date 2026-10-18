@@ -9,7 +9,9 @@ import {
   ShieldCheck, 
   ArrowRight,
   Shuffle,
-  LogIn
+  LogIn,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserProfile } from '../types';
@@ -23,6 +25,7 @@ interface AuthModalProps {
   currentUser: UserProfile;
   onCreateAccount: (name: string, username: string, avatar: string) => void;
   onSwitchAccount: (userId: string) => void;
+  onDeleteAccount: (userId: string) => void;
   canDismiss?: boolean;
 }
 
@@ -44,6 +47,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentUser,
   onCreateAccount,
   onSwitchAccount,
+  onDeleteAccount,
   canDismiss = true,
 }) => {
   if (!isOpen) return null;
@@ -53,6 +57,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [username, setUsername] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(DEFAULT_AVATARS[0]);
   const [avatarSeed, setAvatarSeed] = useState(Date.now().toString());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleNameChange = (val: string) => {
     setName(val);
@@ -286,6 +291,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="space-y-2">
                 {allUsers.map((userItem) => {
                   const isCurrent = userItem.id === currentUser.id;
+                  const isConfirming = confirmDeleteId === userItem.id;
+
+                  if (isConfirming) {
+                    return (
+                      <div
+                        key={userItem.id}
+                        className="p-3.5 rounded-xl border border-rose-500/50 bg-rose-950/40 space-y-2.5 animate-in fade-in duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-2 text-xs text-rose-300 font-semibold">
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <span>Delete <strong>{userItem.name}</strong> (@{userItem.username})?</span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 leading-tight">
+                          This permanently deletes this predictor profile and its {formatCoins(userItem.balance)} $VS wallet balance.
+                        </p>
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playClick();
+                              setConfirmDeleteId(null);
+                            }}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playClick();
+                              onDeleteAccount(userItem.id);
+                              setConfirmDeleteId(null);
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-1.5 shadow-sm shadow-rose-600/30"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Confirm Delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={userItem.id}
@@ -320,13 +369,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-bold font-mono text-amber-300">
-                          {formatCoins(userItem.balance)} $VS
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs font-bold font-mono text-amber-300">
+                            {formatCoins(userItem.balance)} $VS
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {userItem.betsWon}W - {userItem.betsLost}L
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-400">
-                          {userItem.betsWon}W - {userItem.betsLost}L
-                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sound.playClick();
+                            setConfirmDeleteId(userItem.id);
+                          }}
+                          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title={`Delete account @${userItem.username}`}
+                          aria-label={`Delete ${userItem.name} account`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   );

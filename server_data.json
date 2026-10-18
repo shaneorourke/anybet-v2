@@ -1,0 +1,122 @@
+{
+  "bets": [
+    {
+      "id": "bet_traitors_ep3",
+      "title": "Celebrity Traitors UK 2026 (Ep 3): Round Table Traitor Banishment — Richard E. Grant vs James Acaster",
+      "category": "entertainment",
+      "sideX": {
+        "id": "X",
+        "name": "Richard E. Grant (Banished)",
+        "avatarOrFlag": "🗝️",
+        "pool": 4500,
+        "bettorsCount": 18,
+        "odds": 2.1
+      },
+      "sideY": {
+        "id": "Y",
+        "name": "James Acaster (Survives)",
+        "avatarOrFlag": "🎭",
+        "pool": 5500,
+        "bettorsCount": 22,
+        "odds": 1.8
+      },
+      "totalPot": 10000,
+      "rules": "Official BBC One Episode 3 broadcast: First of the secret Traitors to be unmasked and banished at Claudia Winkleman's Round Table.",
+      "creator": {
+        "id": "oracle_ai",
+        "name": "Versus Gemini Oracle",
+        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=GeminiOracle&backgroundColor=0284c7",
+        "isCurrentUser": false
+      },
+      "createdAt": "2026-10-18T12:47:52.524Z",
+      "startDate": "2026-10-17T20:47:52.524Z",
+      "endDate": "2026-10-17T22:47:52.524Z",
+      "status": "resolved",
+      "isRealWorld": true,
+      "eventLeague": "Celebrity Traitors UK 2026 (BBC One)",
+      "wagers": [],
+      "stats": {
+        "views": 1240,
+        "shares": 88
+      },
+      "outcome": "X",
+      "resolutionNotes": "OFFICIAL BBC ONE RESULT: In Episode 3 (aired Thursday Oct 8, 2026), Richard E. Grant made an accidental slip at Claudia Winkleman's Round Table, inadvertently admitting he was a Traitor. He called it 'catastrophically idiotic' as the castle voted unanimously to banish him, making him the first Traitor banished in Series 2. James Acaster and Maya Jama remain active Traitors.",
+      "resolvedAt": "2026-10-18T13:02:35.028Z"
+    },
+    {
+      "id": "bet_live_superclash",
+      "title": "UFC Fight Night: Edwards vs Covington — Welterweight Championship Main Card",
+      "category": "sports",
+      "sideX": {
+        "id": "X",
+        "name": "Leon Edwards",
+        "avatarOrFlag": "🥊",
+        "pool": 5200,
+        "bettorsCount": 24,
+        "odds": 1.85
+      },
+      "sideY": {
+        "id": "Y",
+        "name": "Colby Covington",
+        "avatarOrFlag": "🥋",
+        "pool": 4800,
+        "bettorsCount": 22,
+        "odds": 2.15
+      },
+      "totalPot": 10000,
+      "rules": "5 Rounds Championship Main Event decision or stoppage verified by official UFC judges scorecards.",
+      "creator": {
+        "id": "oracle_ai",
+        "name": "Combat Sports Desk",
+        "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=UFCDesk&backgroundColor=881337",
+        "isCurrentUser": false
+      },
+      "createdAt": "2026-10-18T12:47:52.524Z",
+      "startDate": "2026-10-18T12:12:52.524Z",
+      "endDate": "2026-10-18T13:32:52.524Z",
+      "status": "active",
+      "isRealWorld": true,
+      "eventLeague": "UFC Fight Night Live",
+      "wagers": [],
+      "stats": {
+        "views": 3100,
+        "shares": 140
+      }
+    }
+  ],
+  "users": [
+    {
+      "id": "user_current",
+      "name": "Shane O'Rourke",
+      "username": "shaneo_predicts",
+      "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=ShaneVS&backgroundColor=0f172a",
+      "balance": 1000,
+      "totalWagered": 0,
+      "totalWon": 0,
+      "betsWon": 0,
+      "betsLost": 0,
+      "winStreak": 0,
+      "bestStreak": 0,
+      "xp": 150,
+      "level": 1,
+      "lastDailyBonus": null,
+      "badges": []
+    }
+  ],
+  "leaderboard": [
+    {
+      "id": "user_top1",
+      "name": "Oracle_Zeus",
+      "username": "zeus_predictions",
+      "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=ZeusOracle&backgroundColor=0369a1",
+      "balance": 18450,
+      "profit": 14200,
+      "winRate": 84,
+      "betsWon": 42,
+      "betsTotal": 50,
+      "streak": 8,
+      "rank": 1,
+      "badge": "👑 Grand Oracle"
+    }
+  ]
+}

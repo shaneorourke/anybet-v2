@@ -1052,6 +1052,85 @@ export default function App() {
     });
   };
 
+  // Delete user account permanently
+  const handleDeleteAccount = (userId: string) => {
+    sound.playClick();
+
+    // Sync deletion to server
+    fetch(`/api/accounts/${userId}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+
+    const remainingUsers = allUsers.filter((u) => u.id !== userId);
+
+    if (user.id === userId) {
+      if (remainingUsers.length > 0) {
+        const nextUser = remainingUsers[0];
+        setUser(nextUser);
+        setAllUsers(remainingUsers);
+        try {
+          localStorage.setItem('versus_all_accounts', JSON.stringify(remainingUsers));
+          localStorage.setItem('versus_active_user_id', nextUser.id);
+          localStorage.setItem('versus_user', JSON.stringify(nextUser));
+        } catch {}
+      } else {
+        const fallbackUser: UserProfile = {
+          id: `user_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
+          name: 'New Predictor',
+          username: 'predictor',
+          avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=NewPredictor&backgroundColor=0284c7',
+          balance: 1000,
+          level: 1,
+          xp: 0,
+          totalWagered: 0,
+          totalWon: 0,
+          betsWon: 0,
+          betsLost: 0,
+          winStreak: 0,
+          bestStreak: 0,
+          badges: [
+            {
+              id: 'fresh_starter',
+              title: 'Fresh Starter',
+              description: 'Joined AnyBet Arena',
+              icon: '🎯',
+              unlockedAt: new Date().toISOString(),
+            },
+          ],
+          lastDailyBonus: null,
+        };
+        setUser(fallbackUser);
+        setAllUsers([fallbackUser]);
+        try {
+          localStorage.setItem('versus_all_accounts', JSON.stringify([fallbackUser]));
+          localStorage.setItem('versus_active_user_id', fallbackUser.id);
+          localStorage.setItem('versus_user', JSON.stringify(fallbackUser));
+        } catch {}
+        fetch('/api/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fallbackUser),
+        }).catch(() => {});
+      }
+    } else {
+      setAllUsers(remainingUsers);
+      try {
+        localStorage.setItem('versus_all_accounts', JSON.stringify(remainingUsers));
+      } catch {}
+    }
+
+    setLeaderboard((prev) => prev.filter((u) => u.id !== userId));
+
+    triggerNotification({
+      id: `notif_${Date.now()}`,
+      type: 'community',
+      title: 'Account Deleted 🗑️',
+      message: 'The selected predictor account was permanently removed.',
+      timestamp: 'Just now',
+      read: false,
+    });
+  };
+
   // Simulate live community activity for test demo
   const handleSimulateCommunityActivity = () => {
     const activeBets = bets.filter((b) => b.status === 'active');
@@ -1343,11 +1422,11 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Category Filter Pills / Buttons */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 touch-scroll">
+              {/* Category Filter Segmented Control Bar */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 touch-scroll p-1 bg-slate-900/60 rounded-xl border border-slate-800/80">
                 {[
                   { id: 'all', label: 'All Duels' },
-                  { id: 'community', label: '👥 User Created Duels' },
+                  { id: 'community', label: '👥 User Created' },
                   { id: 'entertainment', label: '🏰 Traitors 2026 & TV' },
                   { id: 'sports', label: '⚽ Sports' },
                   { id: 'gaming', label: '🎮 Gaming & Esports' },
@@ -1361,10 +1440,10 @@ export default function App() {
                       sound.playClick();
                       setSelectedCategory(c.id);
                     }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all active:scale-95 whitespace-nowrap ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
                       selectedCategory === c.id
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/40'
-                        : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm font-bold'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     {c.label}
@@ -1622,6 +1701,7 @@ export default function App() {
         onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
         onClaimDailyBonus={handleClaimDailyBonus}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onDeleteAccount={handleDeleteAccount}
       />
 
       {/* 8. User Account Creation & Multi-User Switcher Modal */}
@@ -1632,6 +1712,7 @@ export default function App() {
         currentUser={user}
         onCreateAccount={handleCreateAccount}
         onSwitchAccount={handleSwitchAccount}
+        onDeleteAccount={handleDeleteAccount}
         canDismiss={true}
       />
     </div>

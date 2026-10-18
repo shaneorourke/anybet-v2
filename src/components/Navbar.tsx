@@ -73,8 +73,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-extrabold tracking-tight text-lg sm:text-xl text-white group-hover:text-emerald-400 transition-colors">
                 AnyBet
               </span>
-              <span className="hidden sm:inline-block ml-2 text-[10px] uppercase font-bold tracking-wider text-emerald-400/90 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                Prediction Arena
+              <span className="hidden sm:inline-block ml-2 text-xs font-semibold text-slate-400">
+                · Prediction Arena
               </span>
             </div>
           </button>

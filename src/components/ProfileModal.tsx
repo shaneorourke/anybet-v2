@@ -10,7 +10,9 @@ import {
   Edit3, 
   RefreshCw,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserProfile } from '../types';
@@ -24,6 +26,7 @@ interface ProfileModalProps {
   onUpdateUser: (updated: Partial<UserProfile>) => void;
   onClaimDailyBonus: () => void;
   onOpenAuthModal?: () => void;
+  onDeleteAccount?: (userId: string) => void;
 }
 
 const AVATAR_OPTIONS = [
@@ -42,6 +45,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onUpdateUser,
   onClaimDailyBonus,
   onOpenAuthModal,
+  onDeleteAccount,
 }) => {
   if (!isOpen) return null;
 
@@ -49,6 +53,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [name, setName] = useState(user.name);
   const [username, setUsername] = useState(user.username);
   const [selectedAvatar, setSelectedAvatar] = useState(user.avatar);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   const totalBets = user.betsWon + user.betsLost;
   const winRate = totalBets > 0 ? Math.round((user.betsWon / totalBets) * 100) : 0;
@@ -333,6 +338,67 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               >
                 👥 Switch / Create Account
               </button>
+            </div>
+          )}
+
+          {/* Account Danger Zone: Delete Account */}
+          {onDeleteAccount && (
+            <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80">
+              {isConfirmingDelete ? (
+                <div className="space-y-2.5 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2 text-xs font-bold text-rose-400">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Permanently delete account for {user.name}?</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    This will delete this user profile and remove your wallet coins ({formatCoins(user.balance)} $VS). You cannot undo this.
+                  </p>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        setIsConfirmingDelete(false);
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        onDeleteAccount(user.id);
+                        onClose();
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-1.5 shadow-sm shadow-rose-600/30"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirm Delete</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-slate-300 block">Delete Account</span>
+                    <span className="text-[11px] text-slate-500">
+                      Permanently delete this account profile on this device.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setIsConfirmingDelete(true);
+                    }}
+                    className="py-1.5 px-3 rounded-lg border border-rose-500/30 hover:border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Account</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
