@@ -59,7 +59,10 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
 
   bets.forEach((b) => {
     (b.wagers || []).forEach((w) => {
-      const isMine = w.userId === currentUserId;
+      const isMine =
+        w.userId === currentUserId ||
+        w.userId === 'user_current' ||
+        (user.name && w.userName === user.name);
       if (isMine) {
         allUserWagers.push({ wager: w, bet: b });
       } else {
@@ -68,11 +71,20 @@ export const MyBetsDashboard: React.FC<MyBetsDashboardProps> = ({
     });
   });
 
-  const activeWagers = allUserWagers.filter((item) => item.bet.status === 'active');
-  const pastWagers = allUserWagers.filter((item) => item.bet.status !== 'active');
+  const activeWagers = allUserWagers.filter(
+    (item) => item.bet.status === 'active' && (!item.wager.status || item.wager.status === 'pending')
+  );
+  const pastWagers = allUserWagers.filter(
+    (item) => item.bet.status !== 'active' || (item.wager.status && item.wager.status !== 'pending')
+  );
   
   // Showdowns created by current user
-  const myCreatedBets = bets.filter((b) => b.creator.id === currentUserId);
+  const myCreatedBets = bets.filter(
+    (b) =>
+      b.creator.id === currentUserId ||
+      b.creator.id === 'user_current' ||
+      (user.name && b.creator.name === user.name)
+  );
 
   // Showdowns created by ANY community user (or current user)
   const allCommunityCreatedBets = bets.filter((b) => b.creator.id !== 'oracle_ai');

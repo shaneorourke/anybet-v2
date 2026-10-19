@@ -56,7 +56,12 @@ export const BetCard: React.FC<BetCardProps> = ({
 
   // Single-prediction per duel enforcement: Check if user already predicted on this duel
   const userWager = currentUser 
-    ? bet.wagers.find((w) => w.userId === currentUser.id && w.status === 'pending') 
+    ? bet.wagers.find(
+        (w) =>
+          w.userId === currentUser.id ||
+          w.userId === 'user_current' ||
+          (currentUser.name && w.userName === currentUser.name)
+      ) 
     : undefined;
   const hasAlreadyBet = !!userWager;
 

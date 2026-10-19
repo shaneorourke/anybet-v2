@@ -162,7 +162,7 @@ export default function App() {
   });
   const [isAiChecking, setIsAiChecking] = useState<boolean>(false);
 
-  // Sync state to localStorage
+  // Sync state to localStorage & backend API
   useEffect(() => {
     try {
       localStorage.setItem('versus_user', JSON.stringify(user));
@@ -179,6 +179,13 @@ export default function App() {
         localStorage.setItem('versus_all_accounts', JSON.stringify(updated));
         return updated;
       });
+
+      // Push updated user profile & balance to server backend
+      fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      }).catch(() => {});
     } catch {}
   }, [user]);
 
@@ -212,21 +219,86 @@ export default function App() {
         if (isMounted) {
           if (betsRes && betsRes.success && Array.isArray(betsRes.bets) && betsRes.bets.length > 0) {
             setBets((prev) => {
-              const serverMap = new Map(betsRes.bets.map((b: Bet) => [b.id, b]));
-              const localUnsynced = prev.filter((b) => !serverMap.has(b.id));
-              return [...localUnsynced, ...betsRes.bets];
+              const serverBetsMap = new Map<string, Bet>(betsRes.bets.map((b: Bet) => [b.id, b]));
+
+              const mergedBets = prev.map((localBet) => {
+                const serverBet = serverBetsMap.get(localBet.id);
+                if (!serverBet) return localBet;
+
+                const wagerMap = new Map<string, Wager>();
+                (serverBet.wagers || []).forEach((w: Wager) => wagerMap.set(w.id, w));
+                (localBet.wagers || []).forEach((w: Wager) => {
+                  const existing = wagerMap.get(w.id);
+                  if (!existing || (w.status !== 'pending' && existing.status === 'pending')) {
+                    wagerMap.set(w.id, w);
+                  }
+                });
+
+                const combinedWagers = Array.from(wagerMap.values());
+                const isLocalResolved = localBet.status === 'resolved' || localBet.status === 'cancelled_refunded';
+                const isServerResolved = serverBet.status === 'resolved' || serverBet.status === 'cancelled_refunded';
+
+                return {
+                  ...(isServerResolved ? serverBet : localBet),
+                  status: isServerResolved ? serverBet.status : isLocalResolved ? localBet.status : serverBet.status,
+                  wagers: combinedWagers,
+                };
+              });
+
+              const localBetIds = new Set(prev.map((b) => b.id));
+              const newServerBets = betsRes.bets.filter((b: Bet) => !localBetIds.has(b.id));
+
+              return [...mergedBets, ...newServerBets];
             });
           }
 
           if (accountsRes && accountsRes.success && Array.isArray(accountsRes.users)) {
             setAllUsers((prev) => {
-              const userMap = new Map<string, UserProfile>(accountsRes.users.map((u: UserProfile) => [u.id, u]));
-              prev.forEach((u) => {
-                if (!userMap.has(u.id)) {
-                  userMap.set(u.id, u);
+              const serverUserMap = new Map<string, UserProfile>(
+                accountsRes.users.map((u: UserProfile) => [u.id, u])
+              );
+
+              const merged = prev.map((localUser) => {
+                const serverUser = serverUserMap.get(localUser.id);
+                if (!serverUser) return localUser;
+
+                return {
+                  ...serverUser,
+                  ...localUser,
+                  balance: Math.max(localUser.balance, serverUser.balance),
+                  totalWon: Math.max(localUser.totalWon, serverUser.totalWon),
+                  betsWon: Math.max(localUser.betsWon, serverUser.betsWon),
+                  winStreak: Math.max(localUser.winStreak, serverUser.winStreak),
+                  bestStreak: Math.max(localUser.bestStreak, serverUser.bestStreak),
+                };
+              });
+
+              const localUserIds = new Set(prev.map((u) => u.id));
+              accountsRes.users.forEach((su: UserProfile) => {
+                if (!localUserIds.has(su.id)) {
+                  merged.push(su);
                 }
               });
-              return Array.from(userMap.values());
+
+              return merged;
+            });
+
+            setUser((currentUser) => {
+              const matchingServerUser = accountsRes.users.find((u: UserProfile) => u.id === currentUser.id);
+              if (!matchingServerUser) return currentUser;
+
+              const maxBalance = Math.max(currentUser.balance, matchingServerUser.balance);
+              const maxTotalWon = Math.max(currentUser.totalWon, matchingServerUser.totalWon);
+
+              if (maxBalance !== currentUser.balance || maxTotalWon !== currentUser.totalWon) {
+                return {
+                  ...matchingServerUser,
+                  ...currentUser,
+                  balance: maxBalance,
+                  totalWon: maxTotalWon,
+                };
+              }
+              return currentUser;
             });
           }
 
@@ -500,7 +572,11 @@ export default function App() {
     let userLostWagers = 0;
 
     const updatedWagers = targetBet.wagers.map((w) => {
-      const isCurrentUserWager = w.userId === currentUserId || w.userId === 'user_current';
+      const isCurrentUserWager =
+        w.userId === currentUserId ||
+        w.userId === 'user_current' ||
+        (user.name && w.userName === user.name) ||
+        (user.username && w.userName === user.username);
       if (outcome === 'refunded') {
         if (isCurrentUserWager) {
           userPayoutTotal += w.amount;
@@ -1201,12 +1277,15 @@ export default function App() {
   const activeBets = bets.filter((b) => b.status === 'active');
   const pastBets = bets.filter((b) => b.status !== 'active');
 
-  // Track duel IDs where current user has placed an active prediction
+  // Track duel IDs where current user has placed a prediction
   const userPredictedBetIds = new Set(
     bets
       .filter((b) =>
         (b.wagers || []).some(
-          (w) => (w.userId === user.id || w.userId === 'user_current') && w.status === 'pending'
+          (w) =>
+            w.userId === user.id ||
+            w.userId === 'user_current' ||
+            (user.name && w.userName === user.name)
         )
       )
       .map((b) => b.id)
